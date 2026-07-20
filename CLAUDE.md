@@ -50,14 +50,17 @@ A `Dockerfile` (multi-stage: Node build → nginx serve) + `nginx.conf` +
 
 ```
 docker build -t visualdesigner .
-docker run -p <HOST_PORT>:80 visualdesigner
+docker run -d --name visualdesigner -p <HOST_PORT>:80 visualdesigner
 ```
 
 Replace `<HOST_PORT>` with whatever port on the host machine should reach the
-app (e.g. `docker run -p 8080:80 visualdesigner`, then open
-`http://localhost:8080`) — **always ask the user which host port they want**
-rather than assuming one, since it may collide with something else already
-running on their machine.
+app (e.g. `docker run -d --name visualdesigner -p 8080:80 visualdesigner`,
+then open `http://localhost:8080`) — **always ask the user which host port
+they want** rather than assuming one, since it may collide with something
+else already running on their machine. `--name` gives the container a
+stable handle so it can be stopped/removed/rebuilt later without `docker ps`
+lookups — see README.md's "Updating an existing container" section for the
+full update flow (`git pull` → `docker stop`/`rm` → rebuild → re-run).
 
 **No lint or test scripts are configured.** There is no ESLint/Prettier config
 and no test runner (Vitest etc.) set up — `npm run typecheck` (or the

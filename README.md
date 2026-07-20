@@ -80,18 +80,64 @@ npm run dev
 ```
 Then open http://localhost:5173.
 
-### Option C — Docker
+## Updating the app
+
+**Regular (Node.js) install** — pull the latest code and rebuild:
+```
+git pull
+npm install
+npm run build
+npm run preview
+```
+(Or just re-run `run.bat` on Windows — it reinstalls/rebuilds automatically.)
+
+**Docker install** — see [Updating an existing container](#updating-an-existing-container) below.
+
+---
+
+## 🐳 Run with Docker
+
+![Docker](https://img.shields.io/badge/-Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 
 If you have [Docker](https://www.docker.com/) installed, no Node.js setup is
-needed at all:
+needed at all — the whole app builds and runs inside a container.
+
+### Build and run
+
 ```
 docker build -t visualdesigner .
-docker run -p <HOST_PORT>:80 visualdesigner
+docker run -d --name visualdesigner -p <HOST_PORT>:80 visualdesigner
 ```
 Replace `<HOST_PORT>` with whichever port on your machine you want the app
-reachable on — e.g. `docker run -p 8080:80 visualdesigner`, then open
-http://localhost:8080. Pick a port that isn't already in use by something
-else on your computer.
+reachable on — e.g. `docker run -d --name visualdesigner -p 8080:80 visualdesigner`,
+then open http://localhost:8080. Pick a port that isn't already in use by
+something else on your computer.
+
+### Updating an existing container
+
+Say you already cloned the repo and built/ran a container earlier, and want
+to pick up the latest changes from GitHub. From the project folder:
+
+```
+# 1. Pull the latest source from GitHub
+git pull
+
+# 2. Stop the running container
+docker stop visualdesigner
+
+# 3. Remove the stopped container (the old image's built code, not the source)
+docker rm visualdesigner
+
+# 4. Rebuild the image with the updated source
+docker build -t visualdesigner .
+
+# 5. Start a fresh container from the rebuilt image
+docker run -d --name visualdesigner -p <HOST_PORT>:80 visualdesigner
+```
+Use the same `<HOST_PORT>` you picked originally to keep the same URL. Steps
+2–3 are necessary because a container is a frozen snapshot of the image at
+the time it was created — rebuilding the image in step 4 doesn't change any
+container already running from the old one; it has to be replaced.
 
 ## Using the app
 
