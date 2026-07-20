@@ -30,6 +30,8 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     routing: node.routing,
     cornerRadius: node.cornerRadius,
     stubLength: node.stubLength,
+    waypoints: node.waypoints,
+    bezierControls: node.bezierControls,
   });
 
   // A wide, invisible hit path makes thin connectors easy to click without affecting the rendered look.

@@ -1,4 +1,4 @@
-# VisualDesigner v1.2.0
+# VisualDesigner v1.3.0
 
 A browser-based visual diagram editor: draw shapes, text, and connectors,
 then export them as a static image or an animated video. No hand-writing
@@ -6,10 +6,11 @@ SVG or HTML required.
 
 Features include rectangles/ellipses/polygons/clouds/pills, vendored device
 icons, and uploaded images (PNG/JPG/WebP/GIF/SVG); text bound to shapes
-(title/subtitle); connectors with straight/orthogonal/curved routing, dashed
-"marching ants" animation, gradients and arrowheads; drop shadows on shapes,
-text, and connectors; layers with z-order/lock/hide; grouping; multi-select
-with align/distribute; undo/redo; copy/paste; snap-to-grid; a one-click board
+(title/subtitle); connectors with straight/orthogonal/curved routing, each
+with draggable control-point handles to reshape the path, dashed "marching
+ants" animation, gradients and arrowheads; drop shadows on shapes, text, and
+connectors; layers with z-order/lock/hide; grouping; multi-select with
+align/distribute; undo/redo; copy/paste; snap-to-grid; a one-click board
 reset; and export to SVG, PNG, WebM, MP4, and animated WebP.
 
 ## 1. Install the prerequisite: Node.js
@@ -155,6 +156,11 @@ container already running from the old one; it has to be replaced.
   to another. Hover a shape to see its connection points; dragging from any
   point on a shape's edge (not just the default ones) creates a custom
   connection point there.
+- **Shape a connector's path:** select an orthogonal or bezier connector to
+  see its control-point handles. Orthogonal: drag the bend handle to
+  reposition it, double-click anywhere on the path to add another bend,
+  double-click a handle to remove it. Bezier: drag either of the two curve
+  handles, same as a typical pen-tool bezier editor.
 - **Select and edit:** use the Select tool to click (shift-click to add to
   the selection, or drag a box over empty canvas to select everything
   inside it) — the Properties panel on the right lets you change fill,

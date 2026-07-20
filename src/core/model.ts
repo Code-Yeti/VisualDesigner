@@ -214,6 +214,11 @@ export interface ConnectorStyle {
   filterId?: string;
 }
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
 export interface ConnectorNode extends BaseNode {
   type: "connector";
   source: { nodeId: NodeId; portId: NodeId };
@@ -223,6 +228,10 @@ export interface ConnectorNode extends BaseNode {
   stubLength: number;
   style: ConnectorStyle;
   markers: { start: MarkerType; end: MarkerType; size: number };
+  /** User-placed bend points for orthogonal routing, in paint order between the source and target stubs. Undefined/empty falls back to the single auto-computed elbow. */
+  waypoints?: Point[];
+  /** User-dragged bezier handles, overriding the auto-computed tension-based control points. Undefined falls back to auto. */
+  bezierControls?: { c1: Point; c2: Point };
 }
 
 export interface GroupNode extends BaseNode {

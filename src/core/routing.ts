@@ -1,13 +1,16 @@
-import type { RoutingKind } from "./model";
+import type { Point, RoutingKind } from "./model";
 
 export interface RoutingOptions {
   routing: RoutingKind;
   cornerRadius: number;
   stubLength: number;
+  /** User-placed bend points (orthogonal only) - see `ConnectorNode.waypoints`. */
+  waypoints?: Point[];
+  /** User-dragged bezier handles - see `ConnectorNode.bezierControls`. */
+  bezierControls?: { c1: Point; c2: Point };
 }
 
 type Side = "n" | "e" | "s" | "w" | "custom";
-type Point = { x: number; y: number };
 
 function directionVector(side: Side): Point {
   switch (side) {
@@ -34,13 +37,37 @@ export function computePath(source: Point, sourceSide: Side, target: Point, targ
   return computeOrthogonalPath(source, sourceSide, target, targetSide, options);
 }
 
-function computeBezierPath(source: Point, sourceSide: Side, target: Point, targetSide: Side, options: RoutingOptions): string {
+/** The two bezier control points that are actually in effect - the user's dragged handles if set, otherwise the auto-computed tension-based defaults. Exported so the handle overlay can draw/drag the same points the path itself uses. */
+export function getBezierHandlePoints(source: Point, sourceSide: Side, target: Point, targetSide: Side, options: RoutingOptions): { c1: Point; c2: Point } {
+  if (options.bezierControls) return options.bezierControls;
   const ds = directionVector(sourceSide);
   const dt = directionVector(targetSide);
   const tension = Math.max(40, options.stubLength * 2);
-  const c1 = { x: source.x + ds.x * tension, y: source.y + ds.y * tension };
-  const c2 = { x: target.x + dt.x * tension, y: target.y + dt.y * tension };
+  return {
+    c1: { x: source.x + ds.x * tension, y: source.y + ds.y * tension },
+    c2: { x: target.x + dt.x * tension, y: target.y + dt.y * tension },
+  };
+}
+
+function computeBezierPath(source: Point, sourceSide: Side, target: Point, targetSide: Side, options: RoutingOptions): string {
+  const { c1, c2 } = getBezierHandlePoints(source, sourceSide, target, targetSide, options);
   return `M${source.x},${source.y} C${c1.x},${c1.y} ${c2.x},${c2.y} ${target.x},${target.y}`;
+}
+
+/** The single auto-computed elbow used when a connector has no user-placed waypoints yet - what the first drag/double-click starts from. */
+function autoMidpoint(source: Point, sourceSide: Side, target: Point, targetSide: Side, stub: number): Point {
+  const ds = directionVector(sourceSide);
+  const p1 = { x: source.x + ds.x * stub, y: source.y + ds.y * stub };
+  const dt = directionVector(targetSide);
+  const p2 = { x: target.x + dt.x * stub, y: target.y + dt.y * stub };
+  const sourceIsVertical = ds.x === 0 && ds.y !== 0;
+  return sourceIsVertical ? { x: p1.x, y: p2.y } : { x: p2.x, y: p1.y };
+}
+
+/** The bend points currently in effect for an orthogonal connector - the user's `waypoints` if any, otherwise the single auto-computed elbow. Exported so the handle overlay always shows/drags the same point(s) the rendered path actually bends through. */
+export function getOrthogonalBendPoints(source: Point, sourceSide: Side, target: Point, targetSide: Side, options: RoutingOptions): Point[] {
+  if (options.waypoints && options.waypoints.length > 0) return options.waypoints;
+  return [autoMidpoint(source, sourceSide, target, targetSide, options.stubLength)];
 }
 
 /** Direction-aware Manhattan routing with rounded corners, reproducing network.htm's hand-drawn elbow paths. Not an obstacle-avoiding router. */
@@ -48,14 +75,32 @@ function computeOrthogonalPath(source: Point, sourceSide: Side, target: Point, t
   const stub = options.stubLength;
   const ds = directionVector(sourceSide);
   const dt = directionVector(targetSide);
-
   const p1 = { x: source.x + ds.x * stub, y: source.y + ds.y * stub };
   const p2 = { x: target.x + dt.x * stub, y: target.y + dt.y * stub };
 
-  const sourceIsVertical = ds.x === 0 && ds.y !== 0;
-  const mid = sourceIsVertical ? { x: p1.x, y: p2.y } : { x: p2.x, y: p1.y };
+  if (!options.waypoints || options.waypoints.length === 0) {
+    const mid = autoMidpoint(source, sourceSide, target, targetSide, stub);
+    return buildRoundedPath([source, p1, mid, p2, target], options.cornerRadius);
+  }
 
-  return buildRoundedPath([source, p1, mid, p2, target], options.cornerRadius);
+  // User-placed bends: thread source -> stub -> each waypoint (in order) ->
+  // stub -> target, inserting one Manhattan corner between any consecutive
+  // pair that isn't already axis-aligned, alternating orientation starting
+  // from the source stub's own direction so a freshly-dragged/added bend
+  // continues in a natural zigzag instead of requiring the user to also
+  // manage which axis moves first.
+  const chain = [source, p1, ...options.waypoints, p2, target];
+  const points: Point[] = [chain[0]];
+  let vertical = ds.x === 0 && ds.y !== 0;
+  for (let i = 1; i < chain.length; i++) {
+    const prev = points[points.length - 1];
+    const curr = chain[i];
+    const aligned = Math.abs(prev.x - curr.x) < 0.01 || Math.abs(prev.y - curr.y) < 0.01;
+    if (!aligned) points.push(vertical ? { x: prev.x, y: curr.y } : { x: curr.x, y: prev.y });
+    vertical = !vertical;
+    points.push(curr);
+  }
+  return buildRoundedPath(points, options.cornerRadius);
 }
 
 function buildRoundedPath(points: Point[], radius: number): string {

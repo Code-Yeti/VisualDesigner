@@ -1,9 +1,18 @@
 import type { Store } from "@/core/store";
 import type { BBox } from "@/core/geometry";
-import type { Project, ShapeNode, TextNode } from "@/core/model";
+import type { ConnectorNode, Project, ShapeNode, TextNode } from "@/core/model";
 import { SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-import { getWorldBBox, getGroupWorldBBox, getTextWorldBBox, handleWorldPos, resolvePortWorldPos, HANDLE_IDS } from "@/core/geometry";
+import {
+  getWorldBBox,
+  getGroupWorldBBox,
+  getTextWorldBBox,
+  handleWorldPos,
+  resolveConnectorEndpoints,
+  resolvePortWorldPos,
+  HANDLE_IDS,
+} from "@/core/geometry";
+import { getBezierHandlePoints, getOrthogonalBendPoints } from "@/core/routing";
 import { svgEl, setAttrs } from "./svgUtil";
 
 function unionBBox(a: BBox, b: BBox): BBox {
@@ -144,6 +153,66 @@ export function attachPortsOverlay(portsLayer: SVGGElement, projectStore: Store<
       setAttrs(circle, { "pointer-events": interactive ? "all" : "none" });
       portsLayer.appendChild(circle);
     }
+  }
+
+  projectStore.subscribe(render);
+  viewStore.subscribe(render);
+  render();
+}
+
+/**
+ * Draws draggable control-point handles for the single selected connector -
+ * bend-point handles for orthogonal routing (`getOrthogonalBendPoints`,
+ * always at least one: the auto elbow if no waypoints have been placed yet),
+ * or the two bezier control-point handles with guide lines to their anchors
+ * (`getBezierHandlePoints`). Straight connectors have nothing to control, so
+ * nothing is drawn for them. `connectorHandleTool.ts` listens on this same
+ * layer for drag/double-click interactions.
+ */
+export function attachConnectorHandlesOverlay(handlesLayer: SVGGElement, projectStore: Store<Project>, viewStore: Store<ViewState>): void {
+  function render() {
+    handlesLayer.replaceChildren();
+    const view = viewStore.get();
+    if (view.selectedIds.length !== 1) return;
+    const project = projectStore.get();
+    const node = project.nodes[view.selectedIds[0]];
+    if (!node || node.type !== "connector") return;
+    const connector = node as ConnectorNode;
+    if (connector.routing === "straight") return;
+
+    const endpoints = resolveConnectorEndpoints(project, connector);
+    if (!endpoints) return;
+    const { sourcePos, sourceSide, targetPos, targetSide } = endpoints;
+    const size = 6 / view.zoom;
+
+    if (connector.routing === "bezier") {
+      const { c1, c2 } = getBezierHandlePoints(sourcePos, sourceSide, targetPos, targetSide, {
+        routing: "bezier",
+        cornerRadius: connector.cornerRadius,
+        stubLength: connector.stubLength,
+        bezierControls: connector.bezierControls,
+      });
+      handlesLayer.appendChild(svgEl("line", { x1: sourcePos.x, y1: sourcePos.y, x2: c1.x, y2: c1.y, class: "bezier-guide" }));
+      handlesLayer.appendChild(svgEl("line", { x1: targetPos.x, y1: targetPos.y, x2: c2.x, y2: c2.y, class: "bezier-guide" }));
+      for (const [key, pt] of [["c1", c1] as const, ["c2", c2] as const]) {
+        const circle = svgEl("circle", { cx: pt.x, cy: pt.y, r: size, class: "connector-handle", "data-bezier-handle": key });
+        setAttrs(circle, { "pointer-events": "all" });
+        handlesLayer.appendChild(circle);
+      }
+      return;
+    }
+
+    const bends = getOrthogonalBendPoints(sourcePos, sourceSide, targetPos, targetSide, {
+      routing: "orthogonal",
+      cornerRadius: connector.cornerRadius,
+      stubLength: connector.stubLength,
+      waypoints: connector.waypoints,
+    });
+    bends.forEach((pt, index) => {
+      const circle = svgEl("circle", { cx: pt.x, cy: pt.y, r: size, class: "connector-handle", "data-waypoint-index": index });
+      setAttrs(circle, { "pointer-events": "all" });
+      handlesLayer.appendChild(circle);
+    });
   }
 
   projectStore.subscribe(render);

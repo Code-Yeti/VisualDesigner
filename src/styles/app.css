@@ -620,6 +620,25 @@ body {
   fill: var(--accent);
 }
 
+.connector-handle {
+  fill: #f59e0b;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  cursor: grab;
+}
+
+.connector-handle:hover {
+  fill: #d97706;
+}
+
+.bezier-guide {
+  stroke: #f59e0b;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
 .connector-draft {
   stroke: #475569;
   stroke-width: 2;

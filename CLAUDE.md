@@ -121,6 +121,39 @@ re-resolves both endpoints from live shape position/size on every render, so
 connectors automatically follow moved/resized shapes with zero explicit
 bookkeeping), and `GroupNode`.
 
+### Custom connector routing (`ConnectorNode.waypoints` / `.bezierControls`)
+
+Orthogonal and bezier connectors are draggable, not just auto-routed.
+`core/routing.ts` exports two "effective control points" helpers -
+`getOrthogonalBendPoints()` (the user's `waypoints` if any, otherwise a
+single-element array with the existing auto-computed elbow) and
+`getBezierHandlePoints()` (the user's `bezierControls` if set, otherwise the
+auto tension-based `c1`/`c2`) - so the path-building code, the handle
+overlay, and the drag tool all agree on exactly where the draggable points
+currently are, with **zero migration needed for existing saved files**: an
+orthogonal connector with no `waypoints` renders and drags identically to
+before this feature existed, since the single auto-elbow *is* what the first
+drag operates on.
+
+- **Orthogonal**: `attachConnectorHandlesOverlay` (`render/overlay.ts`) draws
+  one handle per bend point; `connectorHandleTool.ts` supports dragging any
+  handle (writes an explicit `waypoints` array the first time), double-click
+  on the path to insert a new bend at the nearest segment, and double-click a
+  handle to remove it (dropping back to zero explicit waypoints re-triggers
+  the auto-elbow fallback for free). Multi-point paths thread
+  source→stub→waypoints→stub→target with Manhattan corners inserted between
+  any consecutive pair that isn't already axis-aligned, alternating
+  orientation from the source stub's direction - a heuristic, not a general
+  solver, but predictable enough for hand-placed bends.
+- **Bezier**: exactly two draggable control-point handles (standard
+  cubic-bezier pen-tool UX), never more - a poly-bezier/spline is out of
+  scope. Guide lines (`.bezier-guide`) connect each handle to its anchor.
+- Both live in a new dedicated `connectorHandlesLayer` overlay SVG group
+  (`render/renderer.ts`), not the existing shape/text `selectionLayer` -
+  `resizeTool.ts` already owns that layer's `data-handle` semantics for
+  shape/text resize, and reusing it for a conceptually different "which
+  bend/control point" data attribute would have collided.
+
 ### Drop shadows (`ShapeStyle.filterId` / `TextNode.filterId` / `ConnectorStyle.filterId`)
 
 A node opts into a drop shadow by pointing `filterId` at a `FilterDef` in
@@ -214,11 +247,23 @@ element, so ordering and early-returns based on `viewState.activeTool` matter
 pattern). Two non-obvious things every new pointer-based tool needs to know:
 
 - **`setPointerCapture` retargets subsequent `click`/`dblclick` events to the
-  capturing element**, not the actual element under the cursor. Any handler
-  that needs to know what's under the pointer *after* a capture was set
-  earlier in the gesture must use `document.elementFromPoint(e.clientX, e.clientY)`,
-  not `e.target`. Found via browser testing in `textEditTool.ts` and
-  `connectTool.ts`; both are commented at the fix site.
+  capturing element**, not the actual element under the cursor - and this is
+  not just an `e.target` labeling quirk, it changes which element the event
+  is *dispatched on*, full stop. A listener on a *descendant* of the
+  capturing element (e.g. a handle layer nested under the same `container`
+  that called `setPointerCapture`) will **never** see the event at all,
+  since propagation only flows outward from the dispatch target through its
+  ancestors, never back down into unrelated descendants - so any
+  click/dblclick handling that might run after a capturing pointerdown has
+  to live on the capturing element itself (or an ancestor of it), not a
+  child. Any handler that needs to know what's actually under the pointer
+  must use `document.elementFromPoint(e.clientX, e.clientY)`, never `e.target`.
+  Found via browser testing in `textEditTool.ts` and `connectTool.ts`
+  (commented at the fix site); hit a third time in `connectorHandleTool.ts`,
+  where a waypoint-removal dblclick listener on the handle layer silently
+  never fired until both dblclick branches (remove-a-handle,
+  add-a-bend-on-the-path) were merged onto the single `container`-level
+  listener.
 - **Calling `.focus()` on an element during a `pointerdown` handler gets
   undone by the browser's native mousedown focus-resolution** immediately
   after, unless the handler calls `e.preventDefault()` too. See
@@ -317,8 +362,10 @@ verified end-to-end in a real browser, not just typechecked:
   edge/corner from the dragged handle - a text node has no independent
   width/height, so there's nothing else *to* resize)
 - Ports/connectors: default + custom ports, straight/orthogonal/bezier
-  routing, dash styles (default dash length 8 everywhere), marching-ants
-  animation, solid/auto/custom-gradient stroke, arrow/openArrow/circle/diamond
+  routing with draggable control points (orthogonal bend handles with
+  add/remove via double-click; two-handle bezier curve editing), dash styles
+  (default dash length 8 everywhere), marching-ants animation,
+  solid/auto/custom-gradient stroke, arrow/openArrow/circle/diamond
   terminators
 - Grouping, multi-select (shift-click + marquee drag), align/distribute
   (text nodes participate with a real - if approximate - bbox, not a

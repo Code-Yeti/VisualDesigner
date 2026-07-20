@@ -19,6 +19,7 @@ export interface RendererHandles {
   draftLayer: SVGGElement;
   selectionLayer: SVGGElement;
   portsLayer: SVGGElement;
+  connectorHandlesLayer: SVGGElement;
   marqueeLayer: SVGGElement;
 }
 
@@ -42,8 +43,9 @@ export function mountRenderer(
   const draftLayer = svgEl("g", { id: "draft-layer" });
   const selectionLayer = svgEl("g", { id: "selection-layer" });
   const portsLayer = svgEl("g", { id: "ports-layer" });
+  const connectorHandlesLayer = svgEl("g", { id: "connector-handles-layer" });
   const marqueeLayer = svgEl("g", { id: "marquee-layer" });
-  overlay.append(gridLayer, draftLayer, selectionLayer, portsLayer, marqueeLayer);
+  overlay.append(gridLayer, draftLayer, selectionLayer, portsLayer, connectorHandlesLayer, marqueeLayer);
 
   container.append(stage, overlay);
   parent.appendChild(container);
@@ -58,6 +60,7 @@ export function mountRenderer(
     draftLayer,
     selectionLayer,
     portsLayer,
+    connectorHandlesLayer,
     marqueeLayer,
   };
 
