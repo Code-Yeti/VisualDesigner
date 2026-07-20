@@ -1,4 +1,4 @@
-import type { ShapeGeometry, ShapeNode } from "./model";
+import type { Port, ShapeGeometry, ShapeNode } from "./model";
 
 export type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 export const HANDLE_IDS: HandleId[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -32,6 +32,21 @@ export function getLocalSize(node: ShapeNode): { width: number; height: number }
 export function getWorldBBox(node: ShapeNode): BBox {
   const size = getLocalSize(node);
   return { x: node.transform.x, y: node.transform.y, ...size };
+}
+
+export function defaultPorts(): Port[] {
+  return [
+    { id: "n", x: 0.5, y: 0, side: "n" },
+    { id: "e", x: 1, y: 0.5, side: "e" },
+    { id: "s", x: 0.5, y: 1, side: "s" },
+    { id: "w", x: 0, y: 0.5, side: "w" },
+  ];
+}
+
+/** Resolves a port's fractional local coordinates into a live world-space point, so connectors never store stale coordinates. */
+export function resolvePortWorldPos(node: ShapeNode, port: Port): { x: number; y: number } {
+  const { width, height } = getLocalSize(node);
+  return { x: node.transform.x + port.x * width, y: node.transform.y + port.y * height };
 }
 
 export function handleWorldPos(bbox: BBox, handle: HandleId): { x: number; y: number } {

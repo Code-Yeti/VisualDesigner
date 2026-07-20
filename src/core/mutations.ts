@@ -14,6 +14,17 @@ export function removeNode(project: Project, id: NodeId): Project {
   return { ...project, nodes, order: project.order.filter((x) => x !== id) };
 }
 
+/** Removes a node along with any connectors that reference it, so deleting a shape doesn't leave dangling connectors. */
+export function removeNodeCascade(project: Project, id: NodeId): Project {
+  let next = removeNode(project, id);
+  const dangling = next.order.filter((oid) => {
+    const n = next.nodes[oid];
+    return n?.type === "connector" && (n.source.nodeId === id || n.target.nodeId === id);
+  });
+  for (const cid of dangling) next = removeNode(next, cid);
+  return next;
+}
+
 /**
  * Shallow-merges `patch` onto the existing node. Typed loosely (patch keys
  * are trusted to belong to the node's actual variant) since SceneNode is a

@@ -24,6 +24,8 @@ export interface ViewState {
   activeTool: ToolId;
   /** Which vendored icon preset the "icon" tool will place. */
   activeIconKey: string | null;
+  /** Id of the shape currently under the pointer, so ports can be revealed on hover. */
+  hoveredShapeId: string | null;
   viewportWidth: number;
   viewportHeight: number;
 }
@@ -37,6 +39,7 @@ export function createInitialViewState(canvasWidth: number, canvasHeight: number
     selectedIds: [],
     activeTool: "select",
     activeIconKey: null,
+    hoveredShapeId: null,
     viewportWidth: canvasWidth + margin * 2,
     viewportHeight: canvasHeight + margin * 2,
   };

@@ -1,10 +1,11 @@
 import type { Store } from "@/core/store";
-import type { Project, SceneNode, ShapeNode, TextNode } from "@/core/model";
+import type { ConnectorNode, Project, SceneNode, ShapeNode, TextNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { computeViewBox } from "@/core/viewState";
 import { svgEl, setAttrs } from "./svgUtil";
 import { renderShapeNode, disposeShapeCache } from "./nodes/renderShape";
 import { renderTextNode } from "./nodes/renderText";
+import { renderConnectorNode } from "./nodes/renderConnector";
 
 export interface RendererHandles {
   container: HTMLDivElement;
@@ -15,6 +16,7 @@ export interface RendererHandles {
   gridLayer: SVGGElement;
   draftLayer: SVGGElement;
   selectionLayer: SVGGElement;
+  portsLayer: SVGGElement;
   marqueeLayer: SVGGElement;
 }
 
@@ -38,8 +40,9 @@ export function mountRenderer(
   const gridLayer = svgEl("g", { id: "grid-layer" });
   const draftLayer = svgEl("g", { id: "draft-layer" });
   const selectionLayer = svgEl("g", { id: "selection-layer" });
+  const portsLayer = svgEl("g", { id: "ports-layer" });
   const marqueeLayer = svgEl("g", { id: "marquee-layer" });
-  overlay.append(gridLayer, draftLayer, selectionLayer, marqueeLayer);
+  overlay.append(gridLayer, draftLayer, selectionLayer, portsLayer, marqueeLayer);
 
   container.append(stage, overlay);
   parent.appendChild(container);
@@ -53,6 +56,7 @@ export function mountRenderer(
     gridLayer,
     draftLayer,
     selectionLayer,
+    portsLayer,
     marqueeLayer,
   };
 
@@ -102,6 +106,8 @@ export function mountRenderer(
         renderShapeNode(g, node as ShapeNode);
       } else if (node.type === "text") {
         renderTextNode(g, node as TextNode);
+      } else if (node.type === "connector") {
+        renderConnectorNode(g, node as ConnectorNode, project);
       }
     }
 

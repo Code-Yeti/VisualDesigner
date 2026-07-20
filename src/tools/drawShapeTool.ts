@@ -5,6 +5,7 @@ import type { ToolId, ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { nextId } from "@/core/ids";
 import { addNode } from "@/core/mutations";
+import { defaultPorts } from "@/core/geometry";
 import { svgEl, setAttrs } from "@/render/svgUtil";
 
 const MIN_DRAG = 4;
@@ -126,7 +127,7 @@ export function attachDrawShapeTool(
       transform: { ...defaultTransform(), x, y },
       geometry,
       style,
-      ports: [],
+      ports: defaultPorts(),
       ...(tool === "icon" ? { iconKey: viewStore.get().activeIconKey ?? "firewall" } : {}),
     };
 

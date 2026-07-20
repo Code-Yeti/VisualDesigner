@@ -2,7 +2,7 @@ import { Store } from "@/core/store";
 import { createEmptyProject, type Project } from "@/core/model";
 import { createInitialViewState, type ViewState } from "@/core/viewState";
 import { mountRenderer } from "@/render/renderer";
-import { attachSelectionOverlay } from "@/render/overlay";
+import { attachSelectionOverlay, attachPortsOverlay } from "@/render/overlay";
 import { attachPanZoom } from "@/tools/panZoomTool";
 import { attachSelectMoveTool } from "@/tools/selectMoveTool";
 import { attachResizeTool } from "@/tools/resizeTool";
@@ -11,6 +11,8 @@ import { attachDrawPolygonTool } from "@/tools/drawPolygonTool";
 import { attachTextTool } from "@/tools/textTool";
 import { attachTextEditTool } from "@/tools/textEditTool";
 import { createTextEditOverlay } from "@/tools/textEditOverlay";
+import { attachHoverTool } from "@/tools/hoverTool";
+import { attachConnectTool } from "@/tools/connectTool";
 import { mountToolbar } from "@/panels/Toolbar";
 import { mountLayersPanel } from "@/panels/LayersPanel";
 import { mountPropertiesPanel } from "@/panels/PropertiesPanel";
@@ -45,6 +47,9 @@ attachResizeTool(handles.container, handles.selectionLayer, projectStore, viewSt
 attachDrawShapeTool(handles.container, handles.draftLayer, projectStore, viewStore);
 attachDrawPolygonTool(handles.container, handles.draftLayer, projectStore, viewStore);
 attachSelectionOverlay(handles.selectionLayer, projectStore, viewStore);
+attachPortsOverlay(handles.portsLayer, projectStore, viewStore);
+attachHoverTool(handles.container, projectStore, viewStore);
+attachConnectTool(handles.container, handles.draftLayer, projectStore, viewStore);
 
 const textEditOverlay = createTextEditOverlay(handles.container);
 attachTextTool(handles.container, projectStore, viewStore, textEditOverlay);

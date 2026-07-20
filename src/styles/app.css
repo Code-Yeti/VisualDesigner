@@ -314,3 +314,34 @@ body {
 .field input[type="text"] {
   width: 140px;
 }
+
+.port-marker {
+  fill: #ffffff;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.port-marker:hover {
+  fill: var(--accent);
+}
+
+.connector-draft {
+  stroke: #475569;
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  fill: none;
+}
+
+.connector-path {
+  fill: none;
+}
+
+@keyframes connector-march {
+  to {
+    stroke-dashoffset: -19;
+  }
+}
+
+.connector-ants {
+  animation: connector-march linear infinite;
+}

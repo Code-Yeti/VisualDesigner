@@ -1,8 +1,8 @@
 import type { Store } from "@/core/store";
-import type { BoundTextItem, Project, ShapeNode, TextNode } from "@/core/model";
+import type { BoundTextItem, ConnectorNode, Project, RoutingKind, ShapeNode, TextNode } from "@/core/model";
 import { defaultFont } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-import { removeNode, updateNode } from "@/core/mutations";
+import { removeNode, removeNodeCascade, updateNode } from "@/core/mutations";
 import { fontFieldsHtml, bindFontFields } from "./fontFields";
 
 const PLACEHOLDER = `<h3>Properties</h3><div class="panel-placeholder">Select an object to edit its properties.</div>`;
@@ -35,7 +35,49 @@ export function mountPropertiesPanel(
       renderShapePanel(node as ShapeNode);
       return;
     }
+    if (node.type === "connector") {
+      renderConnectorPanel(node as ConnectorNode);
+      return;
+    }
     panel.innerHTML = PLACEHOLDER;
+  }
+
+  function renderConnectorPanel(connector: ConnectorNode) {
+    panel.innerHTML = `
+      <h3>Properties</h3>
+      <label class="field">Routing
+        <select id="conn-routing">
+          <option value="straight" ${connector.routing === "straight" ? "selected" : ""}>Straight</option>
+          <option value="orthogonal" ${connector.routing === "orthogonal" ? "selected" : ""}>Orthogonal</option>
+          <option value="bezier" ${connector.routing === "bezier" ? "selected" : ""}>Bezier</option>
+        </select>
+      </label>
+      <label class="field">Corner radius<input type="number" id="conn-corner" min="0" max="60" value="${connector.cornerRadius}"></label>
+      <label class="field">Stub length<input type="number" id="conn-stub" min="0" max="120" value="${connector.stubLength}"></label>
+      <label class="field">Stroke width<input type="number" id="conn-width" min="0.5" max="20" step="0.5" value="${connector.style.strokeWidth}"></label>
+      <button id="prop-delete" class="danger-btn">Delete connector</button>
+    `;
+
+    panel.querySelector<HTMLSelectElement>("#conn-routing")!.addEventListener("change", (e) => {
+      const routing = (e.target as HTMLSelectElement).value as RoutingKind;
+      projectStore.update((p) => updateNode(p, connector.id, { routing }));
+    });
+    panel.querySelector<HTMLInputElement>("#conn-corner")!.addEventListener("input", (e) => {
+      const cornerRadius = Number((e.target as HTMLInputElement).value);
+      projectStore.update((p) => updateNode(p, connector.id, { cornerRadius }));
+    });
+    panel.querySelector<HTMLInputElement>("#conn-stub")!.addEventListener("input", (e) => {
+      const stubLength = Number((e.target as HTMLInputElement).value);
+      projectStore.update((p) => updateNode(p, connector.id, { stubLength }));
+    });
+    panel.querySelector<HTMLInputElement>("#conn-width")!.addEventListener("input", (e) => {
+      const strokeWidth = Number((e.target as HTMLInputElement).value);
+      projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, strokeWidth } }));
+    });
+    panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
+      projectStore.update((p) => removeNode(p, connector.id));
+      viewStore.patch({ ...viewStore.get(), selectedIds: [] });
+    });
   }
 
   function renderShapePanel(shape: ShapeNode) {
@@ -70,7 +112,7 @@ export function mountPropertiesPanel(
       projectStore.update((p) => updateNode(p, shape.id, { style: { ...shape.style, opacity } }));
     });
     panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
-      projectStore.update((p) => removeNode(p, shape.id));
+      projectStore.update((p) => removeNodeCascade(p, shape.id));
       viewStore.patch({ ...viewStore.get(), selectedIds: [] });
     });
 

@@ -5,6 +5,7 @@ import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { nextId } from "@/core/ids";
 import { addNode } from "@/core/mutations";
+import { defaultPorts } from "@/core/geometry";
 import { svgEl, setAttrs } from "@/render/svgUtil";
 
 /** Click to place vertices; double-click or Enter finishes; Escape cancels. */
@@ -54,7 +55,7 @@ export function attachDrawPolygonTool(
       transform: { ...defaultTransform(), x: minX, y: minY },
       geometry: { kind: "polygon", points: localPoints } as PolygonGeom,
       style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 2, opacity: 1 },
-      ports: [],
+      ports: defaultPorts(),
     };
     projectStore.update((p) => addNode(p, node));
     viewStore.patch({ ...viewStore.get(), activeTool: "select", selectedIds: [id] });
