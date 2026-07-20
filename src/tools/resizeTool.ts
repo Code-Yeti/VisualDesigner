@@ -2,7 +2,7 @@ import type { Store } from "@/core/store";
 import type { NodeId, Project, ShapeNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
-import { computeResizedBBox, getWorldBBox, type BBox, type HandleId } from "@/core/geometry";
+import { computeResizedBBox, getWorldBBox, resizeGeometry, type BBox, type HandleId } from "@/core/geometry";
 
 export function attachResizeTool(
   container: HTMLElement,
@@ -42,12 +42,7 @@ export function attachResizeTool(
     projectStore.update((p) => {
       const node = p.nodes[activeId!] as ShapeNode | undefined;
       if (!node) return p;
-      const geometry =
-        node.geometry.kind === "ellipse"
-          ? { ...node.geometry, rx: next.width / 2, ry: next.height / 2 }
-          : node.geometry.kind === "rect"
-          ? { ...node.geometry, width: next.width, height: next.height }
-          : node.geometry;
+      const geometry = resizeGeometry(node.geometry, startBBox, next);
       return {
         ...p,
         nodes: {

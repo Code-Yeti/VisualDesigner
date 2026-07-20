@@ -7,6 +7,9 @@ export type ToolId =
   | "rect"
   | "ellipse"
   | "polygon"
+  | "cloud"
+  | "pill"
+  | "icon"
   | "text"
   | "connect";
 
@@ -19,6 +22,8 @@ export interface ViewState {
   zoom: number;
   selectedIds: string[];
   activeTool: ToolId;
+  /** Which vendored icon preset the "icon" tool will place. */
+  activeIconKey: string | null;
   viewportWidth: number;
   viewportHeight: number;
 }
@@ -31,6 +36,7 @@ export function createInitialViewState(canvasWidth: number, canvasHeight: number
     zoom: 1,
     selectedIds: [],
     activeTool: "select",
+    activeIconKey: null,
     viewportWidth: canvasWidth + margin * 2,
     viewportHeight: canvasHeight + margin * 2,
   };

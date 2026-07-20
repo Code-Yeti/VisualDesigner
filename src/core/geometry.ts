@@ -1,4 +1,4 @@
-import type { ShapeNode } from "./model";
+import type { ShapeGeometry, ShapeNode } from "./model";
 
 export type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 export const HANDLE_IDS: HandleId[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -74,4 +74,24 @@ export function computeResizedBBox(orig: BBox, handle: HandleId, dx: number, dy:
   }
 
   return { x, y, width, height };
+}
+
+/** Produces updated geometry for a shape resized from `orig` bbox to `next` bbox. */
+export function resizeGeometry(geometry: ShapeGeometry, orig: BBox, next: BBox): ShapeGeometry {
+  switch (geometry.kind) {
+    case "rect":
+      return { ...geometry, width: next.width, height: next.height };
+    case "ellipse":
+      return { ...geometry, rx: next.width / 2, ry: next.height / 2 };
+    case "cloud":
+      return { ...geometry, width: next.width, height: next.height };
+    case "polygon": {
+      const scaleX = orig.width > 0 ? next.width / orig.width : 1;
+      const scaleY = orig.height > 0 ? next.height / orig.height : 1;
+      return {
+        ...geometry,
+        points: geometry.points.map((p) => ({ x: p.x * scaleX, y: p.y * scaleY })),
+      };
+    }
+  }
 }

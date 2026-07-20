@@ -1,12 +1,13 @@
-import type { EllipseGeom, RectGeom, ShapeNode } from "@/core/model";
-import { svgEl, setAttrs, SVG_NS } from "../svgUtil";
+import type { PolygonGeom, RectGeom, EllipseGeom, CloudGeom, ShapeNode } from "@/core/model";
+import { CLOUD_BASE, ICON_PRESETS } from "@/core/presets";
+import { svgEl, setAttrs } from "../svgUtil";
 
-interface ShapeElCache {
-  shapeEl: SVGElement;
-  kind: string;
+interface Entry {
+  body: SVGGElement;
+  signature: string;
 }
 
-const cache = new Map<string, ShapeElCache>();
+const cache = new Map<string, Entry>();
 
 function fillValue(node: ShapeNode): string {
   const { fill } = node.style;
@@ -19,37 +20,107 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
   const t = node.transform;
   setAttrs(g, {
     transform: `translate(${t.x} ${t.y}) rotate(${t.rotation})`,
-    opacity: node.visible === false ? 0 : undefined,
   });
 
-  const kind = node.geometry.kind;
+  const iconKey = node.type === "icon" ? node.iconKey : undefined;
+  const signature = `${node.type}:${node.geometry.kind}:${iconKey ?? ""}`;
+
   let entry = cache.get(node.id);
-  if (!entry || entry.kind !== kind) {
-    entry?.shapeEl.remove();
-    const tag = kind === "ellipse" ? "ellipse" : "rect"; // polygon/cloud/pill added in M2
-    const shapeEl = document.createElementNS(SVG_NS, tag);
-    g.insertBefore(shapeEl, g.firstChild);
-    entry = { shapeEl, kind };
+  if (!entry || entry.signature !== signature) {
+    entry?.body.remove();
+    const body = svgEl("g", { class: "shape-body" });
+    g.insertBefore(body, g.firstChild);
+    entry = { body, signature };
     cache.set(node.id, entry);
   }
 
   const style = node.style;
-  const fill = fillValue(node);
-  const common = {
-    fill,
-    stroke: style.stroke,
-    "stroke-width": style.strokeWidth,
-    opacity: style.opacity,
+  setAttrs(entry.body, {
+    opacity: node.visible === false ? 0 : style.opacity,
     filter: style.filterId ? `url(#${style.filterId})` : undefined,
-    "pointer-events": "all",
-  };
+  });
+  entry.body.replaceChildren();
 
-  if (kind === "rect") {
+  const fill = fillValue(node);
+  const common = { fill, stroke: style.stroke, "stroke-width": style.strokeWidth };
+
+  if (node.type === "rect" || node.type === "pill") {
     const geom = node.geometry as RectGeom;
-    setAttrs(entry.shapeEl, { x: 0, y: 0, width: geom.width, height: geom.height, rx: geom.rx, ry: geom.ry, ...common });
-  } else if (kind === "ellipse") {
+    const rx = node.type === "pill" ? geom.height / 2 : geom.rx;
+    const ry = node.type === "pill" ? geom.height / 2 : geom.ry;
+    entry.body.appendChild(
+      svgEl("rect", { x: 0, y: 0, width: geom.width, height: geom.height, rx, ry, "pointer-events": "all", ...common })
+    );
+  } else if (node.type === "ellipse") {
     const geom = node.geometry as EllipseGeom;
-    setAttrs(entry.shapeEl, { cx: geom.rx, cy: geom.ry, rx: geom.rx, ry: geom.ry, ...common });
+    entry.body.appendChild(
+      svgEl("ellipse", { cx: geom.rx, cy: geom.ry, rx: geom.rx, ry: geom.ry, "pointer-events": "all", ...common })
+    );
+  } else if (node.type === "polygon") {
+    const geom = node.geometry as PolygonGeom;
+    const points = geom.points.map((p) => `${p.x},${p.y}`).join(" ");
+    entry.body.appendChild(svgEl("polygon", { points, "pointer-events": "all", ...common }));
+  } else if (node.type === "cloud") {
+    const geom = node.geometry as CloudGeom;
+    const sx = geom.width / CLOUD_BASE.width;
+    const sy = geom.height / CLOUD_BASE.height;
+    const hitArea = svgEl("rect", {
+      x: 0,
+      y: 0,
+      width: geom.width,
+      height: geom.height,
+      fill: "transparent",
+      stroke: "none",
+      "pointer-events": "all",
+    });
+    const inner = svgEl("g", { transform: `scale(${sx} ${sy})` });
+    inner.appendChild(
+      svgEl("ellipse", {
+        cx: CLOUD_BASE.ellipse.cx,
+        cy: CLOUD_BASE.ellipse.cy,
+        rx: CLOUD_BASE.ellipse.rx,
+        ry: CLOUD_BASE.ellipse.ry,
+        ...common,
+      })
+    );
+    for (const c of CLOUD_BASE.circles) {
+      inner.appendChild(svgEl("circle", { cx: c.cx, cy: c.cy, r: c.r, ...common }));
+    }
+    entry.body.append(hitArea, inner);
+  } else if (node.type === "icon") {
+    const geom = node.geometry as RectGeom;
+    const preset = ICON_PRESETS.find((p) => p.key === iconKey) ?? ICON_PRESETS[0];
+    const scale = (Math.min(geom.width, geom.height) * 0.6) / 24;
+    const tx = (geom.width - 24 * scale) / 2;
+    const ty = (geom.height - 24 * scale) / 2;
+    const hitArea = svgEl("rect", {
+      x: 0,
+      y: 0,
+      width: geom.width,
+      height: geom.height,
+      fill: "transparent",
+      stroke: "none",
+      "pointer-events": "all",
+    });
+    const inner = svgEl("g", { transform: `translate(${tx} ${ty}) scale(${scale})`, class: "icon-glyph" });
+    for (const d of preset.paths ?? []) {
+      inner.appendChild(
+        svgEl("path", { d, fill: "none", stroke: style.stroke, "stroke-width": 1.7, "stroke-linecap": "round", "stroke-linejoin": "round" })
+      );
+    }
+    for (const c of preset.circles ?? []) {
+      inner.appendChild(
+        svgEl("circle", {
+          cx: c.cx,
+          cy: c.cy,
+          r: c.r,
+          fill: c.filled ? style.stroke : "none",
+          stroke: c.filled ? "none" : style.stroke,
+          "stroke-width": c.filled ? undefined : 1.7,
+        })
+      );
+    }
+    entry.body.append(hitArea, inner);
   }
 }
 

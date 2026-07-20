@@ -1,18 +1,56 @@
 import type { Store } from "@/core/store";
-import type { Project, ShapeNode } from "@/core/model";
+import type { Project, ShapeGeometry, ShapeNode, ShapeStyle } from "@/core/model";
 import { defaultTransform } from "@/core/model";
-import type { ViewState } from "@/core/viewState";
+import type { ToolId, ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { nextId } from "@/core/ids";
 import { addNode } from "@/core/mutations";
 import { svgEl, setAttrs } from "@/render/svgUtil";
 
 const MIN_DRAG = 4;
-const DEFAULT_WIDTH = 120;
-const DEFAULT_HEIGHT = 80;
 
-function isShapeTool(tool: string): tool is "rect" | "ellipse" {
-  return tool === "rect" || tool === "ellipse";
+type BBoxTool = "rect" | "ellipse" | "cloud" | "pill" | "icon";
+
+const DEFAULT_SIZE: Record<BBoxTool, { width: number; height: number }> = {
+  rect: { width: 120, height: 80 },
+  ellipse: { width: 120, height: 80 },
+  cloud: { width: 220, height: 90 },
+  pill: { width: 140, height: 34 },
+  icon: { width: 64, height: 64 },
+};
+
+function isBBoxTool(tool: ToolId): tool is BBoxTool {
+  return tool === "rect" || tool === "ellipse" || tool === "cloud" || tool === "pill" || tool === "icon";
+}
+
+function buildGeometryAndStyle(tool: BBoxTool, width: number, height: number): { geometry: ShapeGeometry; style: ShapeStyle } {
+  switch (tool) {
+    case "rect":
+      return {
+        geometry: { kind: "rect", width, height, rx: 8, ry: 8 },
+        style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 2, opacity: 1 },
+      };
+    case "ellipse":
+      return {
+        geometry: { kind: "ellipse", rx: width / 2, ry: height / 2 },
+        style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 2, opacity: 1 },
+      };
+    case "cloud":
+      return {
+        geometry: { kind: "cloud", width, height },
+        style: { fill: { kind: "solid", color: "#ffffff" }, stroke: "#7c3aed", strokeWidth: 2, opacity: 1 },
+      };
+    case "pill":
+      return {
+        geometry: { kind: "rect", width, height, rx: height / 2, ry: height / 2 },
+        style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 0, opacity: 1 },
+      };
+    case "icon":
+      return {
+        geometry: { kind: "rect", width, height, rx: 0, ry: 0 },
+        style: { fill: { kind: "none" }, stroke: "#1e293b", strokeWidth: 1.7, opacity: 1 },
+      };
+  }
 }
 
 export function attachDrawShapeTool(
@@ -27,7 +65,7 @@ export function attachDrawShapeTool(
 
   container.addEventListener("pointerdown", (e) => {
     const tool = viewStore.get().activeTool;
-    if (!isShapeTool(tool)) return;
+    if (!isBBoxTool(tool)) return;
 
     drawing = true;
     startWorld = clientToWorld(e.clientX, e.clientY, container, viewStore.get());
@@ -65,37 +103,31 @@ export function attachDrawShapeTool(
     let width = Math.abs(world.x - startWorld.x);
     let height = Math.abs(world.y - startWorld.y);
 
-    if (width < MIN_DRAG || height < MIN_DRAG) {
-      x = startWorld.x;
-      y = startWorld.y;
-      width = DEFAULT_WIDTH;
-      height = DEFAULT_HEIGHT;
-    }
-
     draftEl?.remove();
     draftEl = null;
     container.releasePointerCapture(e.pointerId);
 
-    if (!isShapeTool(tool)) return;
+    if (!isBBoxTool(tool)) return;
+
+    if (width < MIN_DRAG || height < MIN_DRAG) {
+      x = startWorld.x;
+      y = startWorld.y;
+      width = DEFAULT_SIZE[tool].width;
+      height = DEFAULT_SIZE[tool].height;
+    }
 
     const id = nextId(tool);
+    const { geometry, style } = buildGeometryAndStyle(tool, width, height);
     const node: ShapeNode = {
       id,
       type: tool,
       parentId: null,
       visible: true,
       transform: { ...defaultTransform(), x, y },
-      geometry:
-        tool === "rect"
-          ? { kind: "rect", width, height, rx: 8, ry: 8 }
-          : { kind: "ellipse", rx: width / 2, ry: height / 2 },
-      style: {
-        fill: { kind: "solid", color: "#2563eb" },
-        stroke: "#1e40af",
-        strokeWidth: 2,
-        opacity: 1,
-      },
+      geometry,
+      style,
       ports: [],
+      ...(tool === "icon" ? { iconKey: viewStore.get().activeIconKey ?? "firewall" } : {}),
     };
 
     projectStore.update((p) => addNode(p, node));

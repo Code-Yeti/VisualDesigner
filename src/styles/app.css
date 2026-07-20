@@ -235,3 +235,30 @@ body {
 #content-root [data-id] {
   cursor: move;
 }
+
+.polygon-draft {
+  fill: rgba(37, 99, 235, 0.08);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.polygon-vertex {
+  fill: #ffffff;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+#icon-select {
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  background: #fff;
+  color: var(--ink);
+}
+
+#icon-select.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}

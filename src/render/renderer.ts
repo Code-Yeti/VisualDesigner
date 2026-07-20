@@ -1,5 +1,5 @@
 import type { Store } from "@/core/store";
-import type { Project, SceneNode } from "@/core/model";
+import type { Project, SceneNode, ShapeNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { computeViewBox } from "@/core/viewState";
 import { svgEl, setAttrs } from "./svgUtil";
@@ -98,7 +98,7 @@ export function mountRenderer(
       contentRoot.appendChild(g);
 
       if (SHAPE_TYPES.has(node.type)) {
-        renderShapeNode(g, node as Extract<SceneNode, { type: "rect" | "ellipse" }>);
+        renderShapeNode(g, node as ShapeNode);
       }
     }
 
