@@ -1,6 +1,6 @@
 import type { Store } from "@/core/store";
 import type { Project, ShapeGeometry, ShapeNode, ShapeStyle } from "@/core/model";
-import { defaultTransform } from "@/core/model";
+import { defaultShapeStyle, defaultTransform } from "@/core/model";
 import type { ToolId, ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { nextId } from "@/core/ids";
@@ -27,30 +27,17 @@ function isBBoxTool(tool: ToolId): tool is BBoxTool {
 function buildGeometryAndStyle(tool: BBoxTool, width: number, height: number): { geometry: ShapeGeometry; style: ShapeStyle } {
   switch (tool) {
     case "rect":
-      return {
-        geometry: { kind: "rect", width, height, rx: 8, ry: 8 },
-        style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 2, opacity: 1 },
-      };
+      return { geometry: { kind: "rect", width, height, rx: 8, ry: 8 }, style: defaultShapeStyle("#2563eb", "#1e40af", 2) };
     case "ellipse":
-      return {
-        geometry: { kind: "ellipse", rx: width / 2, ry: height / 2 },
-        style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 2, opacity: 1 },
-      };
+      return { geometry: { kind: "ellipse", rx: width / 2, ry: height / 2 }, style: defaultShapeStyle("#2563eb", "#1e40af", 2) };
     case "cloud":
-      return {
-        geometry: { kind: "cloud", width, height },
-        style: { fill: { kind: "solid", color: "#ffffff" }, stroke: "#7c3aed", strokeWidth: 2, opacity: 1 },
-      };
+      return { geometry: { kind: "cloud", width, height }, style: defaultShapeStyle("#ffffff", "#7c3aed", 2) };
     case "pill":
-      return {
-        geometry: { kind: "rect", width, height, rx: height / 2, ry: height / 2 },
-        style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 0, opacity: 1 },
-      };
-    case "icon":
-      return {
-        geometry: { kind: "rect", width, height, rx: 0, ry: 0 },
-        style: { fill: { kind: "none" }, stroke: "#1e293b", strokeWidth: 1.7, opacity: 1 },
-      };
+      return { geometry: { kind: "rect", width, height, rx: height / 2, ry: height / 2 }, style: defaultShapeStyle("#2563eb", "#1e40af", 0) };
+    case "icon": {
+      const style = defaultShapeStyle("#2563eb", "#1e293b", 1.7);
+      return { geometry: { kind: "rect", width, height, rx: 0, ry: 0 }, style: { ...style, fill: { kind: "none" } } };
+    }
   }
 }
 

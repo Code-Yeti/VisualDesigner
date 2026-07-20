@@ -39,8 +39,9 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     "pointer-events": "stroke",
   });
   const solidStrokeColor = node.style.stroke.kind === "solid" ? node.style.stroke.color : "#475569";
-  const markerStart = node.markers.start !== "none" ? `url(#${markerDefId(node.markers.start, solidStrokeColor, "start")})` : undefined;
-  const markerEnd = node.markers.end !== "none" ? `url(#${markerDefId(node.markers.end, solidStrokeColor, "end")})` : undefined;
+  const markerSize = node.markers.size;
+  const markerStart = node.markers.start !== "none" ? `url(#${markerDefId(node.markers.start, solidStrokeColor, markerSize, "start")})` : undefined;
+  const markerEnd = node.markers.end !== "none" ? `url(#${markerDefId(node.markers.end, solidStrokeColor, markerSize, "end")})` : undefined;
 
   const visiblePath = svgEl("path", {
     d,
@@ -48,7 +49,7 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     stroke: strokeValue(node),
     "stroke-width": node.style.strokeWidth,
     "stroke-dasharray": node.style.dash === "dashed" ? "12 7" : node.style.dash === "dotted" ? "2 5" : undefined,
-    class: node.style.animated ? "connector-ants" : undefined,
+    class: node.style.animated ? "dash-ants" : undefined,
     style: node.style.animated ? `animation-duration:${node.style.animationSeconds}s` : undefined,
     "marker-start": markerStart,
     "marker-end": markerEnd,

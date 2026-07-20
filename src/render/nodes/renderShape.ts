@@ -50,7 +50,15 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
   entry.body.replaceChildren();
 
   const fill = fillValue(node);
-  const common = { fill, stroke: style.stroke, "stroke-width": style.strokeWidth };
+  const dashArray = style.strokeDash === "dashed" ? "12 7" : style.strokeDash === "dotted" ? "2 5" : undefined;
+  const common = {
+    fill,
+    stroke: style.stroke,
+    "stroke-width": style.strokeWidth,
+    "stroke-dasharray": dashArray,
+    class: style.strokeAnimated ? "dash-ants" : undefined,
+    style: style.strokeAnimated ? `animation-duration:${style.strokeAnimationSeconds}s` : undefined,
+  };
   const pe = hidden ? "none" : "all";
 
   if (node.type === "rect" || node.type === "pill") {

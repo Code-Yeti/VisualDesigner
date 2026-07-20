@@ -3,6 +3,10 @@ import type { NodeId, Project } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { bringForward, bringToFront, reorderNode, sendBackward, sendToBack, updateNode } from "@/core/mutations";
 
+function escapeHtml(value: string): string {
+  return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
 export function mountLayersPanel(parent: HTMLElement, projectStore: Store<Project>, viewStore: Store<ViewState>): HTMLElement {
   const panel = document.createElement("div");
   panel.className = "side-panel left";
@@ -11,6 +15,17 @@ export function mountLayersPanel(parent: HTMLElement, projectStore: Store<Projec
   let draggingId: NodeId | null = null;
 
   function render() {
+    // Same anti-flicker reasoning as PropertiesPanel: don't blow away an
+    // in-progress rename input on every store change.
+    const active = document.activeElement;
+    if (active && panel.contains(active) && active.tagName === "INPUT") return;
+
+    // Selection changes are handled separately by syncSelectionClasses()
+    // (a class toggle, not a rebuild) specifically so that clicking a row
+    // never destroys/recreates it - otherwise the first click of a
+    // double-click (which selects) would replace the row mid-gesture and
+    // the browser would never recognize the second click as completing a
+    // dblclick, making rename-by-double-click unreliable.
     const project = projectStore.get();
     const selected = new Set(viewStore.get().selectedIds);
     // Only top-level items: a grouped child is represented by its group's row, not its own.
@@ -33,7 +48,7 @@ export function mountLayersPanel(parent: HTMLElement, projectStore: Store<Projec
         return `
           <div class="layer-row${isSelected}" data-id="${id}">
             <span class="layer-drag-handle" title="Drag to reorder">&#8942;&#8942;</span>
-            <span class="layer-name">${label}</span>
+            <span class="layer-name" title="Double-click to rename">${escapeHtml(label)}</span>
             <span class="layer-actions">
               <button class="layer-icon-btn" data-action="front" title="Bring to front">&#8607;</button>
               <button class="layer-icon-btn" data-action="forward" title="Bring forward">&#9650;</button>
@@ -52,8 +67,14 @@ export function mountLayersPanel(parent: HTMLElement, projectStore: Store<Projec
       const id = row.dataset.id!;
 
       row.addEventListener("click", (e) => {
-        if ((e.target as HTMLElement).closest("[data-action], .layer-drag-handle")) return;
+        if ((e.target as HTMLElement).closest("[data-action], .layer-drag-handle, .layer-name-input")) return;
         viewStore.patch({ ...viewStore.get(), selectedIds: [id] });
+      });
+
+      const nameSpan = row.querySelector<HTMLSpanElement>(".layer-name")!;
+      nameSpan.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        startRename(id, nameSpan);
       });
 
       row.querySelector<HTMLElement>('[data-action="front"]')!.addEventListener("click", () => {
@@ -86,6 +107,47 @@ export function mountLayersPanel(parent: HTMLElement, projectStore: Store<Projec
     });
   }
 
+  function syncSelectionClasses() {
+    const selected = new Set(viewStore.get().selectedIds);
+    panel.querySelectorAll<HTMLDivElement>(".layer-row").forEach((row) => {
+      row.classList.toggle("selected", selected.has(row.dataset.id!));
+    });
+  }
+
+  function startRename(id: NodeId, nameSpan: HTMLSpanElement) {
+    const currentLabel = nameSpan.textContent ?? "";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "layer-name-input";
+    input.value = currentLabel;
+    nameSpan.replaceWith(input);
+    input.focus();
+    input.select();
+
+    let committed = false;
+    function commit(value: string) {
+      if (committed) return;
+      committed = true;
+      const trimmed = value.trim();
+      projectStore.update((p) => updateNode(p, id, { name: trimmed || undefined }));
+    }
+
+    input.addEventListener("blur", () => commit(input.value));
+    input.addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        committed = true; // discard the edit
+        input.blur();
+        render();
+      }
+    });
+    input.addEventListener("pointerdown", (e) => e.stopPropagation());
+  }
+
   panel.addEventListener("pointermove", (e) => {
     if (!draggingId) return;
     panel.querySelectorAll(".layer-row").forEach((r) => r.classList.remove("drop-target"));
@@ -106,7 +168,7 @@ export function mountLayersPanel(parent: HTMLElement, projectStore: Store<Projec
   });
 
   projectStore.subscribe(render);
-  viewStore.subscribe(render);
+  viewStore.subscribe(syncSelectionClasses);
   render();
   return panel;
 }

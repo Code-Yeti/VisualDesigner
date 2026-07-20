@@ -119,8 +119,15 @@ export interface ShapeStyle {
   fill: FillRef;
   stroke: string;
   strokeWidth: number;
+  strokeDash: DashKind;
+  strokeAnimated: boolean;
+  strokeAnimationSeconds: number;
   opacity: number;
   filterId?: string;
+}
+
+export function defaultShapeStyle(fill: string, stroke: string, strokeWidth: number): ShapeStyle {
+  return { fill: { kind: "solid", color: fill }, stroke, strokeWidth, strokeDash: "solid", strokeAnimated: false, strokeAnimationSeconds: 1, opacity: 1 };
 }
 
 export interface BoundTextItem {
@@ -185,7 +192,7 @@ export interface ConnectorNode extends BaseNode {
   cornerRadius: number;
   stubLength: number;
   style: ConnectorStyle;
-  markers: { start: MarkerType; end: MarkerType };
+  markers: { start: MarkerType; end: MarkerType; size: number };
 }
 
 export interface GroupNode extends BaseNode {

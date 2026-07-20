@@ -9,6 +9,7 @@ import { getLocalSize, resolvePortWorldPos } from "@/core/geometry";
 import { svgEl, setAttrs } from "@/render/svgUtil";
 
 const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
+const DEFAULT_MARKER_SIZE = 12;
 
 interface DragState {
   sourceNodeId: string;
@@ -119,7 +120,7 @@ export function attachConnectTool(
       cornerRadius: 12,
       stubLength: 24,
       style: { stroke: { kind: "solid", color: "#475569" }, strokeWidth: 2.5, dash: "solid", animated: false, animationSeconds: 1 },
-      markers: { start: "none", end: "arrow" },
+      markers: { start: "none", end: "arrow", size: DEFAULT_MARKER_SIZE },
     };
     projectStore.update((p) => addNode(p, connector));
     viewStore.patch({ ...viewStore.get(), selectedIds: [id] });

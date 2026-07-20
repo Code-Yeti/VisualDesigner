@@ -1,6 +1,6 @@
 import type { Store } from "@/core/store";
 import type { PolygonGeom, Project, ShapeNode } from "@/core/model";
-import { defaultTransform } from "@/core/model";
+import { defaultShapeStyle, defaultTransform } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { nextId } from "@/core/ids";
@@ -54,7 +54,7 @@ export function attachDrawPolygonTool(
       visible: true,
       transform: { ...defaultTransform(), x: minX, y: minY },
       geometry: { kind: "polygon", points: localPoints } as PolygonGeom,
-      style: { fill: { kind: "solid", color: "#2563eb" }, stroke: "#1e40af", strokeWidth: 2, opacity: 1 },
+      style: defaultShapeStyle("#2563eb", "#1e40af", 2),
       ports: defaultPorts(),
     };
     projectStore.update((p) => addNode(p, node));

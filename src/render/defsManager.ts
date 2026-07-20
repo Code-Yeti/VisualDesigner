@@ -2,10 +2,8 @@ import type { ConnectorNode, MarkerType, Project, ShapeNode } from "@/core/model
 import { resolvePortWorldPos } from "@/core/geometry";
 import { svgEl, setAttrs } from "./svgUtil";
 
-const MARKER_SIZE = 10;
-
-export function markerDefId(type: string, color: string, end: "start" | "end"): string {
-  return `marker-${type}-${end}-${color.replace(/[^a-zA-Z0-9]/g, "")}`;
+export function markerDefId(type: string, color: string, size: number, end: "start" | "end"): string {
+  return `marker-${type}-${end}-${size}-${color.replace(/[^a-zA-Z0-9]/g, "")}`;
 }
 
 /** Creates/updates the live `<linearGradient>` and `<marker>` defs any connector currently needs, and prunes ones no longer referenced. */
@@ -40,23 +38,28 @@ function syncConnectorGradient(stageDefs: SVGDefsElement, project: Project, conn
   }
   el.replaceChildren();
 
-  if (def.mode === "auto") {
-    const sourceNode = project.nodes[connector.source.nodeId] as ShapeNode | undefined;
-    const targetNode = project.nodes[connector.target.nodeId] as ShapeNode | undefined;
-    const sourcePort = sourceNode?.ports.find((p) => p.id === connector.source.portId);
-    const targetPort = targetNode?.ports.find((p) => p.id === connector.target.portId);
-    if (!sourceNode || !targetNode || !sourcePort || !targetPort) return;
+  // Always userSpaceOnUse with the connector's real endpoints, for both auto
+  // and custom mode: objectBoundingBox (the only alternative for "custom")
+  // is defined as invalid/ignored by the SVG spec whenever the referencing
+  // element's bounding box has zero width OR height - which a perfectly
+  // horizontal or vertical connector always has - silently turning the
+  // stroke into no paint at all. Real coordinates sidestep that entirely.
+  const sourceNode = project.nodes[connector.source.nodeId] as ShapeNode | undefined;
+  const targetNode = project.nodes[connector.target.nodeId] as ShapeNode | undefined;
+  const sourcePort = sourceNode?.ports.find((p) => p.id === connector.source.portId);
+  const targetPort = targetNode?.ports.find((p) => p.id === connector.target.portId);
+  if (!sourceNode || !targetNode || !sourcePort || !targetPort) return;
 
-    const sourcePos = resolvePortWorldPos(sourceNode, sourcePort);
-    const targetPos = resolvePortWorldPos(targetNode, targetPort);
+  const sourcePos = resolvePortWorldPos(sourceNode, sourcePort);
+  const targetPos = resolvePortWorldPos(targetNode, targetPort);
+  setAttrs(el, { gradientUnits: "userSpaceOnUse", x1: sourcePos.x, y1: sourcePos.y, x2: targetPos.x, y2: targetPos.y });
+
+  if (def.mode === "auto") {
     const sourceColor = sourceNode.style.fill.kind === "solid" ? sourceNode.style.fill.color : "#94a3b8";
     const targetColor = targetNode.style.fill.kind === "solid" ? targetNode.style.fill.color : "#94a3b8";
-
-    setAttrs(el, { gradientUnits: "userSpaceOnUse", x1: sourcePos.x, y1: sourcePos.y, x2: targetPos.x, y2: targetPos.y });
     el.appendChild(svgEl("stop", { offset: "0", "stop-color": sourceColor }));
     el.appendChild(svgEl("stop", { offset: "1", "stop-color": targetColor }));
   } else {
-    setAttrs(el, { x1: "0", y1: "0", x2: "1", y2: "0", gradientUnits: undefined });
     const stops = def.stops?.length
       ? def.stops
       : [
@@ -71,25 +74,30 @@ function syncConnectorGradient(stageDefs: SVGDefsElement, project: Project, conn
 
 function syncConnectorMarkers(stageDefs: SVGDefsElement, connector: ConnectorNode, neededIds: Set<string>): void {
   const color = connector.style.stroke.kind === "solid" ? connector.style.stroke.color : "#475569";
+  const size = connector.markers.size;
   for (const end of ["start", "end"] as const) {
     const type = connector.markers[end];
     if (type === "none") continue;
-    const markerId = markerDefId(type, color, end);
+    const markerId = markerDefId(type, color, size, end);
     neededIds.add(markerId);
     if (stageDefs.querySelector(`#${CSS.escape(markerId)}`)) continue;
-    stageDefs.appendChild(buildMarkerElement(markerId, type, color, end));
+    stageDefs.appendChild(buildMarkerElement(markerId, type, color, size, end));
   }
 }
 
-function buildMarkerElement(id: string, type: MarkerType, color: string, end: "start" | "end"): SVGMarkerElement {
+function buildMarkerElement(id: string, type: MarkerType, color: string, size: number, end: "start" | "end"): SVGMarkerElement {
   const orient = end === "start" ? "auto-start-reverse" : "auto";
   const marker = svgEl("marker", {
     id,
     viewBox: "0 0 10 10",
     refX: end === "start" ? 1 : 9,
     refY: 5,
-    markerWidth: MARKER_SIZE,
-    markerHeight: MARKER_SIZE,
+    markerWidth: size,
+    markerHeight: size,
+    // userSpaceOnUse (not the SVG default of "strokeWidth") so the
+    // terminator's size is absolute and independent of the connector's
+    // stroke width, per its own `markers.size` field.
+    markerUnits: "userSpaceOnUse",
     orient,
   });
   setAttrs(marker, { "data-generated": "true" });

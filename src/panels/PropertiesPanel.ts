@@ -1,5 +1,5 @@
 import type { Store } from "@/core/store";
-import type { BoundTextItem, ConnectorNode, DashKind, MarkerType, Project, RoutingKind, ShapeNode, TextNode } from "@/core/model";
+import type { BoundTextItem, ConnectorNode, ConnectorStyle, DashKind, MarkerType, Project, RoutingKind, ShapeNode, ShapeStyle, TextNode } from "@/core/model";
 import { defaultFont } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertGradientDef } from "@/core/mutations";
@@ -27,6 +27,37 @@ export function mountPropertiesPanel(
   const panel = document.createElement("div");
   panel.className = "side-panel right";
   parent.appendChild(panel);
+
+  // Always re-fetch the node from the store inside the mutator instead of
+  // merging onto a `shape`/`connector` object captured by the outer render()
+  // closure. That closure is stale as soon as ANY field changes without a
+  // full panel rebuild in between (which is normal: our anti-flicker guard
+  // intentionally skips rebuilding while focus stays inside this panel, e.g.
+  // moving from one color picker to the next) - merging onto the stale copy
+  // would silently revert whatever the previous field just changed.
+  function updateShapeStyle(id: string, patch: Partial<ShapeStyle>) {
+    projectStore.update((p) => {
+      const current = p.nodes[id] as ShapeNode | undefined;
+      if (!current) return p;
+      return updateNode(p, id, { style: { ...current.style, ...patch } });
+    });
+  }
+
+  function updateConnectorStyle(id: string, patch: Partial<ConnectorStyle>) {
+    projectStore.update((p) => {
+      const current = p.nodes[id] as ConnectorNode | undefined;
+      if (!current) return p;
+      return updateNode(p, id, { style: { ...current.style, ...patch } });
+    });
+  }
+
+  function updateConnectorMarkers(id: string, patch: Partial<ConnectorNode["markers"]>) {
+    projectStore.update((p) => {
+      const current = p.nodes[id] as ConnectorNode | undefined;
+      if (!current) return p;
+      return updateNode(p, id, { markers: { ...current.markers, ...patch } });
+    });
+  }
 
   function render() {
     // While the user is mid-edit in a text/number/range/color field inside
@@ -180,6 +211,7 @@ export function mountPropertiesPanel(
       <h3 class="section-heading">Terminators</h3>
       <label class="field">Start${markerSelectHtml("conn-marker-start", connector.markers.start)}</label>
       <label class="field">End${markerSelectHtml("conn-marker-end", connector.markers.end)}</label>
+      <label class="field">Size<input type="number" id="conn-marker-size" min="4" max="60" step="1" value="${connector.markers.size}"></label>
 
       <button id="prop-delete" class="danger-btn">Delete connector</button>
     `;
@@ -197,25 +229,24 @@ export function mountPropertiesPanel(
       projectStore.update((p) => updateNode(p, connector.id, { stubLength }));
     });
     panel.querySelector<HTMLInputElement>("#conn-width")!.addEventListener("input", (e) => {
-      const strokeWidth = Number((e.target as HTMLInputElement).value);
-      projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, strokeWidth } }));
+      updateConnectorStyle(connector.id, { strokeWidth: Number((e.target as HTMLInputElement).value) });
     });
 
     panel.querySelector<HTMLSelectElement>("#conn-stroke-mode")!.addEventListener("change", (e) => {
       const mode = (e.target as HTMLSelectElement).value as "solid" | "auto" | "custom";
       if (mode === "solid") {
-        projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, stroke: { kind: "solid", color: solidColor } } }));
+        updateConnectorStyle(connector.id, { stroke: { kind: "solid", color: solidColor } });
         return;
       }
       const gradientId = nextId("gradient");
       projectStore.update((p) => {
         const withDef = upsertGradientDef(p, { id: gradientId, kind: "linear", mode, stops: mode === "custom" ? customStops : undefined });
-        return updateNode(withDef, connector.id, { style: { ...connector.style, stroke: { kind: "gradient", gradientId } } });
+        const current = withDef.nodes[connector.id] as ConnectorNode;
+        return updateNode(withDef, connector.id, { style: { ...current.style, stroke: { kind: "gradient", gradientId } } });
       });
     });
     panel.querySelector<HTMLInputElement>("#conn-solid-color")?.addEventListener("input", (e) => {
-      const color = (e.target as HTMLInputElement).value;
-      projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, stroke: { kind: "solid", color } } }));
+      updateConnectorStyle(connector.id, { stroke: { kind: "solid", color: (e.target as HTMLInputElement).value } });
     });
     panel.querySelector<HTMLInputElement>("#conn-grad-start")?.addEventListener("input", (e) => {
       updateCustomGradientStop(connector, 0, (e.target as HTMLInputElement).value, customStops);
@@ -225,25 +256,23 @@ export function mountPropertiesPanel(
     });
 
     panel.querySelector<HTMLSelectElement>("#conn-dash")!.addEventListener("change", (e) => {
-      const dash = (e.target as HTMLSelectElement).value as DashKind;
-      projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, dash } }));
+      updateConnectorStyle(connector.id, { dash: (e.target as HTMLSelectElement).value as DashKind });
     });
     panel.querySelector<HTMLInputElement>("#conn-animate")!.addEventListener("change", (e) => {
-      const animated = (e.target as HTMLInputElement).checked;
-      projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, animated } }));
+      updateConnectorStyle(connector.id, { animated: (e.target as HTMLInputElement).checked });
     });
     panel.querySelector<HTMLInputElement>("#conn-anim-speed")?.addEventListener("input", (e) => {
-      const animationSeconds = Number((e.target as HTMLInputElement).value);
-      projectStore.update((p) => updateNode(p, connector.id, { style: { ...connector.style, animationSeconds } }));
+      updateConnectorStyle(connector.id, { animationSeconds: Number((e.target as HTMLInputElement).value) });
     });
 
     panel.querySelector<HTMLSelectElement>("#conn-marker-start")!.addEventListener("change", (e) => {
-      const start = (e.target as HTMLSelectElement).value as MarkerType;
-      projectStore.update((p) => updateNode(p, connector.id, { markers: { ...connector.markers, start } }));
+      updateConnectorMarkers(connector.id, { start: (e.target as HTMLSelectElement).value as MarkerType });
     });
     panel.querySelector<HTMLSelectElement>("#conn-marker-end")!.addEventListener("change", (e) => {
-      const end = (e.target as HTMLSelectElement).value as MarkerType;
-      projectStore.update((p) => updateNode(p, connector.id, { markers: { ...connector.markers, end } }));
+      updateConnectorMarkers(connector.id, { end: (e.target as HTMLSelectElement).value as MarkerType });
+    });
+    panel.querySelector<HTMLInputElement>("#conn-marker-size")!.addEventListener("input", (e) => {
+      updateConnectorMarkers(connector.id, { size: Number((e.target as HTMLInputElement).value) });
     });
 
     panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
@@ -280,6 +309,15 @@ export function mountPropertiesPanel(
       <label class="field">Fill<input type="color" id="prop-fill" value="${fillColor}"></label>
       <label class="field">Stroke<input type="color" id="prop-stroke" value="${shape.style.stroke}"></label>
       <label class="field">Stroke width<input type="number" id="prop-stroke-width" min="0" max="40" value="${shape.style.strokeWidth}"></label>
+      <label class="field">Stroke style
+        <select id="prop-stroke-dash">
+          <option value="solid" ${shape.style.strokeDash === "solid" ? "selected" : ""}>Solid</option>
+          <option value="dashed" ${shape.style.strokeDash === "dashed" ? "selected" : ""}>Dashed</option>
+          <option value="dotted" ${shape.style.strokeDash === "dotted" ? "selected" : ""}>Dotted</option>
+        </select>
+      </label>
+      <label class="field">Animate stroke<input type="checkbox" id="prop-stroke-animate" ${shape.style.strokeAnimated ? "checked" : ""}></label>
+      ${shape.style.strokeAnimated ? `<label class="field">Speed (s)<input type="number" id="prop-stroke-anim-speed" min="0.1" step="0.1" value="${shape.style.strokeAnimationSeconds}"></label>` : ""}
       <label class="field">Opacity<input type="range" id="prop-opacity" min="0" max="1" step="0.05" value="${shape.style.opacity}"></label>
       <button id="prop-delete" class="danger-btn">Delete shape</button>
       <h3 class="section-heading">Text</h3>
@@ -288,20 +326,25 @@ export function mountPropertiesPanel(
     `;
 
     panel.querySelector<HTMLInputElement>("#prop-fill")!.addEventListener("input", (e) => {
-      const color = (e.target as HTMLInputElement).value;
-      projectStore.update((p) => updateNode(p, shape.id, { style: { ...shape.style, fill: { kind: "solid", color } } }));
+      updateShapeStyle(shape.id, { fill: { kind: "solid", color: (e.target as HTMLInputElement).value } });
     });
     panel.querySelector<HTMLInputElement>("#prop-stroke")!.addEventListener("input", (e) => {
-      const color = (e.target as HTMLInputElement).value;
-      projectStore.update((p) => updateNode(p, shape.id, { style: { ...shape.style, stroke: color } }));
+      updateShapeStyle(shape.id, { stroke: (e.target as HTMLInputElement).value });
     });
     panel.querySelector<HTMLInputElement>("#prop-stroke-width")!.addEventListener("input", (e) => {
-      const strokeWidth = Number((e.target as HTMLInputElement).value);
-      projectStore.update((p) => updateNode(p, shape.id, { style: { ...shape.style, strokeWidth } }));
+      updateShapeStyle(shape.id, { strokeWidth: Number((e.target as HTMLInputElement).value) });
+    });
+    panel.querySelector<HTMLSelectElement>("#prop-stroke-dash")!.addEventListener("change", (e) => {
+      updateShapeStyle(shape.id, { strokeDash: (e.target as HTMLSelectElement).value as DashKind });
+    });
+    panel.querySelector<HTMLInputElement>("#prop-stroke-animate")!.addEventListener("change", (e) => {
+      updateShapeStyle(shape.id, { strokeAnimated: (e.target as HTMLInputElement).checked });
+    });
+    panel.querySelector<HTMLInputElement>("#prop-stroke-anim-speed")?.addEventListener("input", (e) => {
+      updateShapeStyle(shape.id, { strokeAnimationSeconds: Number((e.target as HTMLInputElement).value) });
     });
     panel.querySelector<HTMLInputElement>("#prop-opacity")!.addEventListener("input", (e) => {
-      const opacity = Number((e.target as HTMLInputElement).value);
-      projectStore.update((p) => updateNode(p, shape.id, { style: { ...shape.style, opacity } }));
+      updateShapeStyle(shape.id, { opacity: Number((e.target as HTMLInputElement).value) });
     });
     panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
       projectStore.update((p) => removeNodeCascade(p, shape.id));

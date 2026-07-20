@@ -8,18 +8,20 @@ import { buildExportSVGElement } from "./svgExport";
  * time always produces the same pixels, so a recording's frame N doesn't
  * depend on how fast the machine happened to run at capture time, and looped
  * playback seams cleanly (frame 0 and frame N-1 are exactly one dash cycle
- * apart for connectors whose animationSeconds divides the loop duration).
+ * apart for elements whose animationSeconds divides the loop duration).
+ * Applies to both connector strokes and animated shape strokes - both use
+ * the same `.dash-ants` class.
  */
 function bakeAnimationState(svg: SVGSVGElement, timeSeconds: number): void {
-  const animatedPaths = svg.querySelectorAll<SVGPathElement>(".connector-ants");
-  animatedPaths.forEach((path) => {
-    const styleAttr = path.getAttribute("style") ?? "";
+  const animatedEls = svg.querySelectorAll<SVGGraphicsElement>(".dash-ants");
+  animatedEls.forEach((el) => {
+    const styleAttr = el.getAttribute("style") ?? "";
     const durationMatch = /animation-duration:\s*([\d.]+)s/.exec(styleAttr);
     const duration = durationMatch ? parseFloat(durationMatch[1]) : 1;
     const progress = (timeSeconds % duration) / duration;
     const dashLength = 19; // matches the marching-ants keyframe's -19 offset in app.css
-    path.style.animation = "none";
-    path.style.strokeDashoffset = String(-dashLength * progress);
+    el.style.animation = "none";
+    el.style.strokeDashoffset = String(-dashLength * progress);
   });
 }
 

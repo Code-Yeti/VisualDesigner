@@ -228,6 +228,17 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  cursor: text;
+}
+
+.layer-name-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 1px 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
 }
 
 .layer-actions {
@@ -613,12 +624,12 @@ body {
   fill: none;
 }
 
-@keyframes connector-march {
+@keyframes dash-march {
   to {
     stroke-dashoffset: -19;
   }
 }
 
-.connector-ants {
-  animation: connector-march linear infinite;
+.dash-ants {
+  animation: dash-march linear infinite;
 }
