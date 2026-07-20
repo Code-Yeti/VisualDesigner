@@ -633,7 +633,11 @@ body {
 
 @keyframes dash-march {
   to {
-    stroke-dashoffset: -19;
+    /* --dash-repeat is set inline per-element to that element's actual dash+gap
+       repeat length (see computeDashRepeatLength) - shifting by anything else
+       makes the loop's per-cycle snap-back visible as a hitch, most noticeable
+       at path/rect corners. 19 is only a fallback for elements that never set it. */
+    stroke-dashoffset: calc(var(--dash-repeat, 19) * -1);
   }
 }
 

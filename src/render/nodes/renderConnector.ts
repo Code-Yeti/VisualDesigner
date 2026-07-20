@@ -1,7 +1,7 @@
 import type { ConnectorNode, Project, ShapeNode } from "@/core/model";
 import { resolvePortWorldPos } from "@/core/geometry";
 import { computePath } from "@/core/routing";
-import { computeDashArray } from "@/core/dashPattern";
+import { computeDashArray, computeDashRepeatLength } from "@/core/dashPattern";
 import { markerDefId } from "../defsManager";
 import { svgEl, setAttrs } from "../svgUtil";
 
@@ -52,7 +52,9 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     "stroke-dasharray": computeDashArray(node.style.dash, node.style.dashLength),
     "stroke-linecap": node.style.dash !== "solid" && node.style.dashRounded ? "round" : undefined,
     class: node.style.animated ? "dash-ants" : undefined,
-    style: node.style.animated ? `animation-duration:${node.style.animationSeconds}s` : undefined,
+    style: node.style.animated
+      ? `animation-duration:${node.style.animationSeconds}s;--dash-repeat:${computeDashRepeatLength(node.style.dash, node.style.dashLength)}`
+      : undefined,
     "marker-start": markerStart,
     "marker-end": markerEnd,
     "pointer-events": "none",

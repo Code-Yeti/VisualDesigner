@@ -153,6 +153,24 @@ act on "whatever the user selected" (move, delete, duplicate, copy/paste,
 align, arrow-nudge) goes through these two functions rather than assuming a
 selected id is a leaf node.
 
+### The Properties panel must re-fetch nodes/defs fresh inside every `projectStore.update()` callback
+
+`PropertiesPanel.ts` skips rebuilding its `innerHTML` while an input inside it
+has focus (so typing/color-dragging isn't interrupted on every keystroke) -
+which means a field's own event handler can fire several times in a row
+against the *same* stale panel-render closure. Any handler that merges a
+patch onto a `shape`/`connector`/gradient-def object captured at render time,
+instead of re-reading it from the `p` passed into the `update()` callback,
+silently reverts whatever a *different* field changed in between (bit twice:
+once for shape/connector style fields, fixed via `updateShapeStyle()` /
+`updateConnectorStyle()` / `updateConnectorMarkers()`; once for custom
+gradient stops, where editing the start color then the end color re-applied
+the stale pre-edit start color - fixed in `updateCustomGradientStop()`,
+which now looks up the gradient def's current stops from `p.defs.gradients`
+inside the updater rather than a `customStops` closure). Any new
+per-node-array-mutation handler (extra gradient stops, multi-stop editors,
+etc.) must follow the same fresh-fetch pattern.
+
 ### Store + undo/redo (`src/core/store.ts`, `src/core/historyStore.ts`)
 
 `Store<T>` is a ~30-line observable (`get/patch/update/subscribe`).
@@ -194,6 +212,25 @@ pattern). Two non-obvious things every new pointer-based tool needs to know:
   undone by the browser's native mousedown focus-resolution** immediately
   after, unless the handler calls `e.preventDefault()` too. See
   `textTool.ts`.
+
+### Marching-ants dash animation (`core/dashPattern.ts`, `.dash-ants` in `app.css`)
+
+The shared `dash-march` `@keyframes` shifts `stroke-dashoffset` to
+`calc(var(--dash-repeat) * -1)` - a CSS custom property, not a hardcoded
+number - because the loop only looks seamless when that shift exactly equals
+the element's own dash+gap repeat length (`computeDashRepeatLength()`), which
+varies per node since dash length is user-configurable. Get this wrong (as a
+prior version did, with a hardcoded `-19` sized for the pre-1.0 default dash
+length of 12) and the animation still *plays*, but each cycle's snap-back
+becomes a visible one-frame hitch - barely noticeable on a straight run with
+no fixed reference point, but jarring at a path corner or rounded-rect corner
+where the eye can see the dash position jump relative to a fixed vertex.
+Every render site that sets `--dash-repeat` inline (`renderShape.ts`,
+`renderConnector.ts`) must derive it from `computeDashRepeatLength()`, and
+`frameSampler.ts`'s baked-frame export path and `svgExport.ts`'s embedded
+standalone stylesheet both read/reference the same per-element custom
+property rather than a shared constant, so exported video/WebP/SVG loop
+identically to the live canvas.
 
 ### Export pipeline (`src/export/`)
 

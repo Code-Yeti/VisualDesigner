@@ -4,7 +4,7 @@ import { SVG_NS } from "@/render/svgUtil";
 // Re-embedded here because the exported file is opened standalone, with no
 // access to the app's own stylesheet.
 const EMBEDDED_STYLE = `
-  @keyframes dash-march { to { stroke-dashoffset: -19; } }
+  @keyframes dash-march { to { stroke-dashoffset: calc(var(--dash-repeat, 19) * -1); } }
   .dash-ants { animation-name: dash-march; animation-timing-function: linear; animation-iteration-count: infinite; }
 `;
 

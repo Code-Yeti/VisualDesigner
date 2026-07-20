@@ -290,10 +290,10 @@ export function mountPropertiesPanel(
       updateConnectorStyle(connector.id, { stroke: { kind: "solid", color: (e.target as HTMLInputElement).value } });
     });
     panel.querySelector<HTMLInputElement>("#conn-grad-start")?.addEventListener("input", (e) => {
-      updateCustomGradientStop(connector, 0, (e.target as HTMLInputElement).value, customStops);
+      updateCustomGradientStop(connector, 0, (e.target as HTMLInputElement).value);
     });
     panel.querySelector<HTMLInputElement>("#conn-grad-end")?.addEventListener("input", (e) => {
-      updateCustomGradientStop(connector, 1, (e.target as HTMLInputElement).value, customStops);
+      updateCustomGradientStop(connector, 1, (e.target as HTMLInputElement).value);
     });
 
     panel.querySelector<HTMLSelectElement>("#conn-dash")!.addEventListener("change", (e) => {
@@ -342,12 +342,28 @@ export function mountPropertiesPanel(
     return def?.mode ?? "custom";
   }
 
-  function updateCustomGradientStop(connector: ConnectorNode, index: 0 | 1, color: string, currentStops: { offset: number; color: string }[]) {
-    if (connector.style.stroke.kind !== "gradient") return;
-    const gradientId = connector.style.stroke.gradientId;
-    const stops = [...currentStops];
-    stops[index] = { ...stops[index], color };
-    projectStore.update((p) => upsertGradientDef(p, { id: gradientId, kind: "linear", mode: "custom", stops }));
+  // Re-fetches the gradient def's stops fresh from the store inside the
+  // updater instead of closing over the `customStops` computed at the panel's
+  // last render - the same stale-closure trap documented at updateShapeStyle
+  // above. The Properties panel skips rebuilding while a color input has
+  // focus (so typing/dragging in the picker isn't interrupted), so without
+  // this, editing the start color then the end color would overwrite the
+  // start back to its pre-edit value, and vice versa.
+  function updateCustomGradientStop(connector: ConnectorNode, index: 0 | 1, color: string) {
+    projectStore.update((p) => {
+      const current = p.nodes[connector.id] as ConnectorNode | undefined;
+      if (!current || current.style.stroke.kind !== "gradient") return p;
+      const gradientId = current.style.stroke.gradientId;
+      const def = p.defs.gradients.find((g) => g.id === gradientId);
+      const stops = def?.stops?.length
+        ? [...def.stops]
+        : [
+            { offset: 0, color: "#2563eb" },
+            { offset: 1, color: "#7c3aed" },
+          ];
+      stops[index] = { ...stops[index], color };
+      return upsertGradientDef(p, { id: gradientId, kind: "linear", mode: "custom", stops });
+    });
   }
 
   function markerSelectHtml(id: string, current: MarkerType): string {

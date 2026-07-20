@@ -1,7 +1,7 @@
 import type { PolygonGeom, RectGeom, EllipseGeom, CloudGeom, ShapeNode } from "@/core/model";
 import { CLOUD_BASE, ICON_PRESETS } from "@/core/presets";
 import { getBoundTextLayout } from "@/core/textLayout";
-import { computeDashArray } from "@/core/dashPattern";
+import { computeDashArray, computeDashRepeatLength } from "@/core/dashPattern";
 import { svgEl, setAttrs } from "../svgUtil";
 import { buildTextElement } from "./renderText";
 
@@ -58,7 +58,9 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
     "stroke-dasharray": computeDashArray(style.strokeDash, style.strokeDashLength),
     "stroke-linecap": style.strokeDash !== "solid" && style.strokeDashRounded ? "round" : undefined,
     class: style.strokeAnimated ? "dash-ants" : undefined,
-    style: style.strokeAnimated ? `animation-duration:${style.strokeAnimationSeconds}s` : undefined,
+    style: style.strokeAnimated
+      ? `animation-duration:${style.strokeAnimationSeconds}s;--dash-repeat:${computeDashRepeatLength(style.strokeDash, style.strokeDashLength)}`
+      : undefined,
   };
   const pe = hidden ? "none" : "all";
 
