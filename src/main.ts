@@ -1,7 +1,11 @@
 import { Store } from "@/core/store";
 import { HistoryStore } from "@/core/historyStore";
-import { createEmptyProject } from "@/core/model";
+import { createEmptyProject, defaultShapeStyle, defaultTransform, type ShapeNode } from "@/core/model";
 import { createInitialViewState, type ViewState } from "@/core/viewState";
+import { addNode } from "@/core/mutations";
+import { nextId } from "@/core/ids";
+import { defaultPorts } from "@/core/geometry";
+import { openImageFilePicker } from "@/io/imageFilePicker";
 import { mountRenderer } from "@/render/renderer";
 import { attachSelectionOverlay, attachPortsOverlay, attachGridOverlay } from "@/render/overlay";
 import { attachPanZoom } from "@/tools/panZoomTool";
@@ -33,6 +37,42 @@ function resetViewToFitCanvas() {
   viewStore.patch(createInitialViewState(projectStore.get().canvas.width, projectStore.get().canvas.height));
 }
 
+const IMAGE_MAX_DIMENSION = 240;
+
+function uploadImage() {
+  openImageFilePicker((dataUrl, naturalWidth, naturalHeight) => {
+    const scale = Math.min(1, IMAGE_MAX_DIMENSION / Math.max(naturalWidth, naturalHeight));
+    const width = Math.round(naturalWidth * scale);
+    const height = Math.round(naturalHeight * scale);
+
+    const view = viewStore.get();
+    const centerX = view.panX + view.viewportWidth / view.zoom / 2;
+    const centerY = view.panY + view.viewportHeight / view.zoom / 2;
+
+    const id = nextId("image");
+    const node: ShapeNode = {
+      id,
+      type: "image",
+      parentId: null,
+      visible: true,
+      transform: { ...defaultTransform(), x: centerX - width / 2, y: centerY - height / 2 },
+      geometry: { kind: "rect", width, height, rx: 0, ry: 0 },
+      style: { ...defaultShapeStyle("#000000", "transparent", 0), fill: { kind: "none" } },
+      ports: defaultPorts(),
+      imageSrc: dataUrl,
+    };
+    projectStore.update((p) => addNode(p, node));
+    viewStore.patch({ ...viewStore.get(), activeTool: "select", selectedIds: [id] });
+  });
+}
+
+function resetBoard() {
+  const canvasSize = projectStore.get().canvas;
+  projectStore.patch(createEmptyProject(canvasSize.width, canvasSize.height));
+  viewStore.patch({ ...createInitialViewState(canvasSize.width, canvasSize.height), activeTool: "select" });
+  clearAutosave();
+}
+
 const toolbar = mountToolbar(app, viewStore, projectStore, {
   onResetView: resetViewToFitCanvas,
   onSave: () => downloadProjectFile(projectStore.get()),
@@ -45,6 +85,7 @@ const toolbar = mountToolbar(app, viewStore, projectStore, {
       (message) => window.alert(message)
     );
   },
+  onUploadImage: uploadImage,
 });
 
 const main = document.createElement("div");
@@ -57,7 +98,7 @@ const canvasArea = document.createElement("div");
 canvasArea.className = "canvas-area";
 main.appendChild(canvasArea);
 
-mountPropertiesPanel(main, projectStore, viewStore);
+mountPropertiesPanel(main, projectStore, viewStore, resetBoard);
 
 const handles = mountRenderer(canvasArea, projectStore, viewStore);
 

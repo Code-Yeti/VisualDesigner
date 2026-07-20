@@ -1,8 +1,7 @@
 import type { Store } from "@/core/store";
 import type { Project } from "@/core/model";
+import { SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 /** Tracks which shape is under the pointer so ports can be revealed on hover. */
 export function attachHoverTool(container: HTMLElement, projectStore: Store<Project>, viewStore: Store<ViewState>): void {
@@ -21,7 +20,7 @@ export function attachHoverTool(container: HTMLElement, projectStore: Store<Proj
     const nodeEl = portEl ?? target?.closest("[data-id]");
     const id = portEl?.getAttribute("data-shape-id") ?? nodeEl?.getAttribute("data-id") ?? null;
     const node = id ? projectStore.get().nodes[id] : undefined;
-    setHovered(node && SHAPE_TYPES.has(node.type) ? id : null);
+    setHovered(node && SHAPE_NODE_TYPES.has(node.type) ? id : null);
   });
 
   container.addEventListener("pointerleave", () => setHovered(null));

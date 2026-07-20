@@ -1,12 +1,14 @@
 import type { Store } from "@/core/store";
-import type { BoundTextItem, ConnectorNode, ConnectorStyle, DashKind, MarkerType, Project, RoutingKind, ShapeNode, ShapeStyle, TextNode } from "@/core/model";
-import { defaultFont } from "@/core/model";
+import type { BoundTextItem, ConnectorNode, ConnectorStyle, DashKind, FilterDef, MarkerType, Project, RoutingKind, ShapeNode, ShapeStyle, TextNode } from "@/core/model";
+import { defaultDropShadowFilter, defaultFont, SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertGradientDef } from "@/core/mutations";
+import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertFilterDef, upsertGradientDef } from "@/core/mutations";
 import { alignNodes, distributeNodes, type AlignMode } from "@/core/align";
 import { nextId } from "@/core/ids";
 import { fontFieldsHtml, bindFontFields } from "./fontFields";
 import { renderCanvasSettings } from "./CanvasSettingsPanel";
+import { effectsFieldsHtml, bindEffectsFields } from "./effectsFields";
+import { openImageFilePicker } from "@/io/imageFilePicker";
 
 const MARKER_OPTIONS: { value: MarkerType; label: string }[] = [
   { value: "none", label: "None" },
@@ -17,12 +19,12 @@ const MARKER_OPTIONS: { value: MarkerType; label: string }[] = [
 ];
 
 const PLACEHOLDER = `<h3>Properties</h3><div class="panel-placeholder">Select an object to edit its properties.</div>`;
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 export function mountPropertiesPanel(
   parent: HTMLElement,
   projectStore: Store<Project>,
-  viewStore: Store<ViewState>
+  viewStore: Store<ViewState>,
+  onResetBoard: () => void
 ): HTMLElement {
   const panel = document.createElement("div");
   panel.className = "side-panel right";
@@ -59,6 +61,41 @@ export function mountPropertiesPanel(
     });
   }
 
+  /** Text stores `filterId` directly on the node; shapes/connectors nest it under `style`. */
+  function toggleShadow(kind: "text" | "styled", id: string, enabled: boolean) {
+    projectStore.update((p) => {
+      const node = p.nodes[id];
+      if (!node) return p;
+      if (!enabled) {
+        if (kind === "text") return updateNode(p, id, { filterId: undefined });
+        const current = node as ShapeNode | ConnectorNode;
+        return updateNode(p, id, { style: { ...current.style, filterId: undefined } });
+      }
+      const filterId = nextId("filter");
+      const withDef = upsertFilterDef(p, defaultDropShadowFilter(filterId));
+      if (kind === "text") return updateNode(withDef, id, { filterId });
+      const current = withDef.nodes[id] as ShapeNode | ConnectorNode;
+      return updateNode(withDef, id, { style: { ...current.style, filterId } });
+    });
+  }
+
+  function updateShadow(kind: "text" | "styled", id: string, patch: Partial<Omit<FilterDef, "id" | "kind">>) {
+    projectStore.update((p) => {
+      const node = p.nodes[id];
+      if (!node) return p;
+      const filterId = kind === "text" ? (node as TextNode).filterId : (node as ShapeNode | ConnectorNode).style.filterId;
+      if (!filterId) return p;
+      const current = p.defs.filters.find((f) => f.id === filterId);
+      if (!current) return p;
+      return upsertFilterDef(p, { ...current, ...patch });
+    });
+  }
+
+  function shadowFilterOf(filterId: string | undefined): FilterDef | undefined {
+    if (!filterId) return undefined;
+    return projectStore.get().defs.filters.find((f) => f.id === filterId);
+  }
+
   function render() {
     // While the user is mid-edit in a text/number/range/color field inside
     // this panel, a store update from that very field's own 'input' handler
@@ -84,14 +121,14 @@ export function mountPropertiesPanel(
     const node = id ? project.nodes[id] : undefined;
 
     if (!node) {
-      renderCanvasSettings(panel, projectStore);
+      renderCanvasSettings(panel, projectStore, onResetBoard);
       return;
     }
     if (node.type === "text") {
       renderTextPanel(node as TextNode);
       return;
     }
-    if (SHAPE_TYPES.has(node.type)) {
+    if (SHAPE_NODE_TYPES.has(node.type)) {
       renderShapePanel(node as ShapeNode);
       return;
     }
@@ -215,6 +252,8 @@ export function mountPropertiesPanel(
       <label class="field">End${markerSelectHtml("conn-marker-end", connector.markers.end)}</label>
       <label class="field">Size<input type="number" id="conn-marker-size" min="4" max="60" step="1" value="${connector.markers.size}"></label>
 
+      ${effectsFieldsHtml("conn-shadow", shadowFilterOf(connector.style.filterId))}
+
       <button id="prop-delete" class="danger-btn">Delete connector</button>
     `;
 
@@ -283,6 +322,13 @@ export function mountPropertiesPanel(
       updateConnectorMarkers(connector.id, { size: Number((e.target as HTMLInputElement).value) });
     });
 
+    bindEffectsFields(
+      panel,
+      "conn-shadow",
+      (enabled) => toggleShadow("styled", connector.id, enabled),
+      (patch) => updateShadow("styled", connector.id, patch)
+    );
+
     panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
       projectStore.update((p) => removeNode(p, connector.id));
       viewStore.patch({ ...viewStore.get(), selectedIds: [] });
@@ -310,6 +356,10 @@ export function mountPropertiesPanel(
   }
 
   function renderShapePanel(shape: ShapeNode) {
+    if (shape.type === "image") {
+      renderImagePanel(shape);
+      return;
+    }
     const fillColor = shape.style.fill.kind === "solid" ? shape.style.fill.color : "#2563eb";
 
     panel.innerHTML = `
@@ -329,11 +379,21 @@ export function mountPropertiesPanel(
       <label class="field">Animate stroke<input type="checkbox" id="prop-stroke-animate" ${shape.style.strokeAnimated ? "checked" : ""}></label>
       ${shape.style.strokeAnimated ? `<label class="field">Speed (s)<input type="number" id="prop-stroke-anim-speed" min="0.1" step="0.1" value="${shape.style.strokeAnimationSeconds}"></label>` : ""}
       <label class="field">Opacity<input type="range" id="prop-opacity" min="0" max="1" step="0.05" value="${shape.style.opacity}"></label>
+
+      ${effectsFieldsHtml("shape-shadow", shadowFilterOf(shape.style.filterId))}
+
       <button id="prop-delete" class="danger-btn">Delete shape</button>
       <h3 class="section-heading">Text</h3>
       ${boundTextSectionHtml("title", "Title", shape.boundText?.title)}
       ${boundTextSectionHtml("subtitle", "Subtitle", shape.boundText?.subtitle)}
     `;
+
+    bindEffectsFields(
+      panel,
+      "shape-shadow",
+      (enabled) => toggleShadow("styled", shape.id, enabled),
+      (patch) => updateShadow("styled", shape.id, patch)
+    );
 
     panel.querySelector<HTMLInputElement>("#prop-fill")!.addEventListener("input", (e) => {
       updateShapeStyle(shape.id, { fill: { kind: "solid", color: (e.target as HTMLInputElement).value } });
@@ -369,6 +429,37 @@ export function mountPropertiesPanel(
 
     bindBoundTextSection(shape, "title");
     bindBoundTextSection(shape, "subtitle");
+  }
+
+  function renderImagePanel(shape: ShapeNode) {
+    panel.innerHTML = `
+      <h3>Properties</h3>
+      <label class="field">Opacity<input type="range" id="prop-opacity" min="0" max="1" step="0.05" value="${shape.style.opacity}"></label>
+
+      ${effectsFieldsHtml("shape-shadow", shadowFilterOf(shape.style.filterId))}
+
+      <button id="prop-replace" class="secondary-btn">Replace image</button>
+      <button id="prop-delete" class="danger-btn">Delete image</button>
+    `;
+
+    panel.querySelector<HTMLInputElement>("#prop-opacity")!.addEventListener("input", (e) => {
+      updateShapeStyle(shape.id, { opacity: Number((e.target as HTMLInputElement).value) });
+    });
+    bindEffectsFields(
+      panel,
+      "shape-shadow",
+      (enabled) => toggleShadow("styled", shape.id, enabled),
+      (patch) => updateShadow("styled", shape.id, patch)
+    );
+    panel.querySelector<HTMLButtonElement>("#prop-replace")!.addEventListener("click", () => {
+      openImageFilePicker((dataUrl) => {
+        projectStore.update((p) => updateNode(p, shape.id, { imageSrc: dataUrl }));
+      });
+    });
+    panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
+      projectStore.update((p) => removeNodeCascade(p, shape.id));
+      viewStore.patch({ ...viewStore.get(), selectedIds: [] });
+    });
   }
 
   function boundTextSectionHtml(key: "title" | "subtitle", label: string, item: BoundTextItem | undefined): string {
@@ -441,12 +532,21 @@ export function mountPropertiesPanel(
       <h3>Properties</h3>
       <label class="field">Content<input type="text" id="text-content" value="${escapeAttr(text.content)}"></label>
       ${fontFieldsHtml("text", text.font, text.fill)}
+
+      ${effectsFieldsHtml("text-shadow", shadowFilterOf(text.filterId))}
+
       <button id="prop-delete" class="danger-btn">Delete text</button>
     `;
 
     panel.querySelector<HTMLInputElement>("#text-content")!.addEventListener("input", (e) => {
       projectStore.update((p) => updateNode(p, text.id, { content: (e.target as HTMLInputElement).value }));
     });
+    bindEffectsFields(
+      panel,
+      "text-shadow",
+      (enabled) => toggleShadow("text", text.id, enabled),
+      (patch) => updateShadow("text", text.id, patch)
+    );
     panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
       projectStore.update((p) => removeNode(p, text.id));
       viewStore.patch({ ...viewStore.get(), selectedIds: [] });

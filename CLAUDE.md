@@ -12,6 +12,24 @@ orthogonal rounded-elbow connectors with CSS marching-ants animation,
 cross-shape gradients, and drop-shadow filters) but built through a GUI
 instead of hand-writing SVG.
 
+## Workflow rules for every change
+
+These apply regardless of how small the change is:
+
+1. **Keep `README.md` current.** Any change that affects what the app does,
+   how it's run, or how it's installed (new feature, new script, new Docker
+   step, etc.) must update `README.md` in the same pass — don't let it drift.
+2. **Ask before committing/pushing to GitHub.** Never run `git commit` or
+   `git push` unprompted after finishing a change, even though prior sessions
+   established a GitHub remote — always ask first and wait for a yes.
+3. **Auto-increment the app version** (`package.json`'s `"version"`, shown in
+   the toolbar next to the app name) every time a change is made:
+   - Bump the **patch** version by default (`1.0.0` → `1.0.1`).
+   - Bump the **major** version instead if the change is significant (a new
+     feature, a breaking change to the project file format, a major visual/UX
+     change) — use judgment; there's no minor-version tier in this project's
+     scheme, it's patch-for-routine vs. major-for-significant.
+
 ## Commands
 
 ```
@@ -24,6 +42,22 @@ npm run typecheck     # tsc --noEmit only, no build
 
 `run.bat` (project root) does install-if-needed → build → preview → opens the
 default browser, for running the app without typing any npm commands.
+
+### Docker
+
+A `Dockerfile` (multi-stage: Node build → nginx serve) + `nginx.conf` +
+`.dockerignore` are in the project root.
+
+```
+docker build -t visualdesigner .
+docker run -p <HOST_PORT>:80 visualdesigner
+```
+
+Replace `<HOST_PORT>` with whatever port on the host machine should reach the
+app (e.g. `docker run -p 8080:80 visualdesigner`, then open
+`http://localhost:8080`) — **always ask the user which host port they want**
+rather than assuming one, since it may collide with something else already
+running on their machine.
 
 **No lint or test scripts are configured.** There is no ESLint/Prettier config
 and no test runner (Vitest etc.) set up — `npm run typecheck` (or the
@@ -62,14 +96,41 @@ one extra rasterize-to-canvas step — no reconstruction/translation layer.
 
 Flat ID-keyed maps + a paint-order array (`Project.nodes`, `Project.order`),
 not a nested tree — z-order, layer reordering, and undo/redo all operate on
-plain arrays/maps. Node types: `ShapeNode` (rect/ellipse/polygon/cloud/pill/icon,
-carries `ports: Port[]` at *fractional* local coordinates and an optional
-`boundText` title/subtitle embedded directly on the shape — not a separate
-node — so it always moves/rotates with its shape for free), `TextNode`,
-`ConnectorNode` (stores `{nodeId, portId}` pairs, **never coordinates** —
-`core/geometry.ts`'s `resolvePortWorldPos()` re-resolves both endpoints from
-live shape position/size on every render, so connectors automatically follow
-moved/resized shapes with zero explicit bookkeeping), and `GroupNode`.
+plain arrays/maps. Node types: `ShapeNode` (rect/ellipse/polygon/cloud/pill/icon/image —
+`image` reuses `RectGeom` and adds an `imageSrc` data-URI field, rendered as an
+`<image>` element instead of a shape primitive, so it gets ports/resize/align/
+drop-shadow for free through every "is this a shape" check via
+`SHAPE_NODE_TYPES`, the one shared set every tool imports rather than each
+declaring its own copy — carries `ports: Port[]` at *fractional* local
+coordinates and an optional `boundText` title/subtitle embedded directly on
+the shape — not a separate node — so it always moves/rotates with its shape
+for free), `TextNode`, `ConnectorNode` (stores `{nodeId, portId}` pairs,
+**never coordinates** — `core/geometry.ts`'s `resolvePortWorldPos()`
+re-resolves both endpoints from live shape position/size on every render, so
+connectors automatically follow moved/resized shapes with zero explicit
+bookkeeping), and `GroupNode`.
+
+### Drop shadows (`ShapeStyle.filterId` / `TextNode.filterId` / `ConnectorStyle.filterId`)
+
+A node opts into a drop shadow by pointing `filterId` at a `FilterDef` in
+`project.defs.filters` (`{ kind: "dropShadow", dx, dy, blur, color, opacity }`).
+Toggling it on in the Properties panel (`effectsFields.ts`'s shared UI, wired
+into the shape/text/connector panels in `PropertiesPanel.ts`) creates a fresh
+`FilterDef` via `defaultDropShadowFilter()` — matching `network.htm`'s own
+shadow exactly, so "just turn it on" fits the target aesthetic without the
+user tuning anything. `render/defsManager.ts`'s `syncFilter()` builds the
+actual `<filter><feDropShadow></filter>` def each render pass, the same
+create-or-update-in-place pattern already used for connector gradients.
+
+**A connector's filter region must be `userSpaceOnUse`, not the default
+objectBoundingBox percentages** — same root cause as the connector-gradient
+bbox bug above: a perfectly vertical or horizontal connector has zero width
+or height in its own bounding box, and objectBoundingBox regions are defined
+as invalid (silently dropping the whole element) whenever either dimension
+is zero. `connectorFilterRegion()` computes an absolute region from the
+connector's real endpoint positions instead, padded generously for
+orthogonal stubs/corners. Shapes and text always have non-zero width *and*
+height, so they keep the cheaper percentage-based region.
 
 **Groups have no geometry of their own** — they're a purely logical
 selection/movement container. Group members keep rendering individually at
@@ -158,31 +219,40 @@ by the build.
 
 ## Project status
 
-All 12 originally-planned milestones (M0–M11) are complete, plus a follow-up
-round of copy/paste and alignment commands. Every feature below was verified
-end-to-end in a real browser, not just typechecked:
+All 12 originally-planned milestones (M0–M11) are complete, plus several
+follow-up rounds (copy/paste + alignment, image/icon upload, drop shadows,
+app versioning, board reset, Docker packaging). Every feature below was
+verified end-to-end in a real browser, not just typechecked:
 
-- Shapes: rect/ellipse/polygon/cloud/pill + 6 vendored device icons; draw,
+- Shapes: rect/ellipse/polygon/cloud/pill/icon + uploaded image; draw,
   select, move, resize, recolor, z-order, lock/hide, layers panel with
   drag-reorder
+- Image/icon upload: PNG/JPG/WebP/GIF/SVG via the toolbar's "Upload Image"
+  button, placed centered in the current view (scaled down, never up, to fit
+  within a max dimension, aspect ratio preserved) and fully resizable
+- Drop shadows: shapes, text, and connectors can each toggle a drop shadow
+  (offset X/Y, blur, color, opacity) with a `network.htm`-matching default
 - Text: standalone tool + title/subtitle bound to shapes, full font controls
 - Ports/connectors: default + custom ports, straight/orthogonal/bezier
-  routing, dash styles, marching-ants animation, solid/auto/custom-gradient
-  stroke, arrow/openArrow/circle/diamond terminators
+  routing, dash styles (default dash length 8 everywhere), marching-ants
+  animation, solid/auto/custom-gradient stroke, arrow/openArrow/circle/diamond
+  terminators
 - Grouping, multi-select (shift-click + marquee drag), align/distribute,
   copy/paste, duplicate
 - Canvas size/background config, grid + snap-to-grid
 - Save/load `.json`, localStorage autosave with restore prompt
+- Reset board: red "Reset board" button in the canvas-settings panel (shown
+  when nothing is selected), behind a confirm dialog, undoable via Ctrl+Z
 - Export: SVG, PNG (1x/2x/3x), WebM/MP4/animated WebP
 - Undo/redo, arrow-key nudge, full keyboard shortcut set (Delete, Ctrl+Z/Y,
   Ctrl+C/V/D, Ctrl+G, Ctrl+S)
+- App version shown in the toolbar (`package.json`'s `"version"`, currently
+  `1.0.0`) — see "Workflow rules" above for the auto-increment policy
+- Docker packaging: `Dockerfile` + `nginx.conf` builds and serves the static
+  production bundle
 
 ### Known gaps (not started / partial)
 
-- **No drop-shadow/glow authoring UI.** `ShapeStyle.filterId` and the
-  `<filter>` def plumbing described in the original architecture plan were
-  never wired up to a properties-panel control — shapes can't get a
-  drop-shadow through the GUI yet, unlike `network.htm`'s boxes/cloud.
 - **Duplicated/pasted connectors still reference the original shapes' ports**,
   not re-wired to any duplicated/pasted copies of those shapes. Fine when
   duplicating a shape alone; a bit surprising if you duplicate a shape *and*

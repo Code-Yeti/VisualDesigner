@@ -45,6 +45,13 @@ body {
   color: var(--ink);
 }
 
+.app-toolbar .app-version {
+  font-weight: 400;
+  font-size: 11px;
+  color: #94a3b8;
+  margin-left: 4px;
+}
+
 .app-toolbar button {
   border: 1px solid var(--panel-border);
   background: #fff;

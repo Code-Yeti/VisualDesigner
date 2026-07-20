@@ -1,8 +1,7 @@
 import type { NodeId, Project, ShapeNode } from "./model";
+import { SHAPE_NODE_TYPES } from "./model";
 import { getGroupDescendantIds, updateNode } from "./mutations";
 import { getGroupWorldBBox, getWorldBBox, type BBox } from "./geometry";
-
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 export type AlignMode = "left" | "centerX" | "right" | "top" | "centerY" | "bottom";
 
@@ -12,7 +11,7 @@ function getAlignBBox(project: Project, id: NodeId): BBox | null {
   if (!node) return null;
   if (node.type === "group") return getGroupWorldBBox(project, id);
   if (node.type === "text") return { x: node.transform.x, y: node.transform.y, width: 0, height: 0 };
-  if (SHAPE_TYPES.has(node.type)) return getWorldBBox(node as ShapeNode);
+  if (SHAPE_NODE_TYPES.has(node.type)) return getWorldBBox(node as ShapeNode);
   return null;
 }
 

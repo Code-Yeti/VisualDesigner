@@ -1,13 +1,11 @@
 import type { Store } from "@/core/store";
 import type { Project, ShapeNode, TextNode } from "@/core/model";
-import { defaultFont } from "@/core/model";
+import { defaultFont, SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { worldToClient } from "./coords";
 import { updateNode } from "@/core/mutations";
 import { getBoundTextLayout } from "@/core/textLayout";
 import type { TextEditOverlay } from "./textEditOverlay";
-
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 /** Double-click a text node, or a shape's title/subtitle (or the shape body itself), to edit its content in place. */
 export function attachTextEditTool(
@@ -32,7 +30,7 @@ export function attachTextEditTool(
       editStandaloneText(node as TextNode);
       return;
     }
-    if (!SHAPE_TYPES.has(node.type)) return;
+    if (!SHAPE_NODE_TYPES.has(node.type)) return;
 
     const boundKey = (target?.closest("[data-bound]")?.getAttribute("data-bound") as "title" | "subtitle" | null) ?? null;
     editBoundText(node as ShapeNode, boundKey);

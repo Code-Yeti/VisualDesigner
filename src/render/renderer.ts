@@ -1,5 +1,6 @@
 import type { Store } from "@/core/store";
-import type { ConnectorNode, Project, SceneNode, ShapeNode, TextNode } from "@/core/model";
+import type { ConnectorNode, Project, ShapeNode, TextNode } from "@/core/model";
+import { SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { computeViewBox } from "@/core/viewState";
 import { svgEl, setAttrs } from "./svgUtil";
@@ -21,7 +22,6 @@ export interface RendererHandles {
   marqueeLayer: SVGGElement;
 }
 
-const SHAPE_TYPES = new Set<SceneNode["type"]>(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 export function mountRenderer(
   parent: HTMLElement,
@@ -105,7 +105,7 @@ export function mountRenderer(
       // so iterating `order` bottom-to-top keeps DOM order == paint order.
       contentRoot.appendChild(g);
 
-      if (SHAPE_TYPES.has(node.type)) {
+      if (SHAPE_NODE_TYPES.has(node.type)) {
         renderShapeNode(g, node as ShapeNode);
       } else if (node.type === "text") {
         renderTextNode(g, node as TextNode);

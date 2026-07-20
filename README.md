@@ -1,15 +1,16 @@
-# VisualDesigner
+# VisualDesigner v1.1.0
 
 A browser-based visual diagram editor: draw shapes, text, and connectors,
 then export them as a static image or an animated video. No hand-writing
 SVG or HTML required.
 
-Features include rectangles/ellipses/polygons/clouds/pills and vendored
-device icons, text bound to shapes (title/subtitle), connectors with
-straight/orthogonal/curved routing, dashed "marching ants" animation,
-gradients and arrowheads, layers with z-order/lock/hide, grouping,
-multi-select with align/distribute, undo/redo, copy/paste, snap-to-grid, and
-export to SVG, PNG, WebM, MP4, and animated WebP.
+Features include rectangles/ellipses/polygons/clouds/pills, vendored device
+icons, and uploaded images (PNG/JPG/WebP/GIF/SVG); text bound to shapes
+(title/subtitle); connectors with straight/orthogonal/curved routing, dashed
+"marching ants" animation, gradients and arrowheads; drop shadows on shapes,
+text, and connectors; layers with z-order/lock/hide; grouping; multi-select
+with align/distribute; undo/redo; copy/paste; snap-to-grid; a one-click board
+reset; and export to SVG, PNG, WebM, MP4, and animated WebP.
 
 ## 1. Install the prerequisite: Node.js
 
@@ -79,11 +80,29 @@ npm run dev
 ```
 Then open http://localhost:5173.
 
+### Option C — Docker
+
+If you have [Docker](https://www.docker.com/) installed, no Node.js setup is
+needed at all:
+```
+docker build -t visualdesigner .
+docker run -p <HOST_PORT>:80 visualdesigner
+```
+Replace `<HOST_PORT>` with whichever port on your machine you want the app
+reachable on — e.g. `docker run -p 8080:80 visualdesigner`, then open
+http://localhost:8080. Pick a port that isn't already in use by something
+else on your computer.
+
 ## Using the app
 
 - **Draw a shape:** click a shape tool in the toolbar (Rectangle, Ellipse,
   Polygon, Cloud, Pill, or pick a device icon from the dropdown), then
   click-drag on the canvas. A plain click places a default-sized shape.
+- **Upload an image or icon:** click "Upload Image" in the toolbar and choose
+  a PNG, JPG, WebP, GIF, or SVG file. It's placed in the middle of the current
+  view, scaled to fit, and can be moved/resized like any other shape; use
+  "Replace image" in its Properties panel to swap the file without losing its
+  position or size.
 - **Add text:** use the Text tool to place standalone text, or double-click
   inside a shape to give it a title (double-click again for a subtitle).
 - **Connect shapes:** switch to the Connect tool, then drag from one shape
@@ -93,12 +112,19 @@ Then open http://localhost:5173.
 - **Select and edit:** use the Select tool to click (shift-click to add to
   the selection, or drag a box over empty canvas to select everything
   inside it) — the Properties panel on the right lets you change fill,
-  stroke, routing, animation, and more depending on what's selected. With
-  multiple objects selected, you also get alignment and distribute buttons.
+  stroke, routing, animation, drop shadow, and more depending on what's
+  selected. With multiple objects selected, you also get alignment and
+  distribute buttons.
+- **Drop shadow:** every shape, text, and connector has an "Effects" section
+  in its Properties panel with a drop-shadow toggle. Turning it on applies a
+  sensible default (matching `network.htm`'s own shadow); offset, blur,
+  color, and opacity are all then adjustable.
 - **Layers:** the panel on the left lists every object; drag to reorder,
   or use the arrows/eye/lock icons for z-order, visibility, and locking.
 - **Canvas settings:** click empty canvas (nothing selected) to see canvas
-  size, background, and grid/snap settings in the right panel.
+  size, background, and grid/snap settings in the right panel — including a
+  red **Reset board** button that clears everything (behind a confirmation
+  dialog; undoable with Ctrl+Z right after).
 - **Save/Load:** the toolbar's Save/Load buttons write/read a `.json`
   project file. The app also autosaves to your browser's local storage and
   offers to restore it next time you open the page.
@@ -109,6 +135,22 @@ Then open http://localhost:5173.
 **Keyboard shortcuts:** Delete/Backspace, Ctrl+Z/Ctrl+Y (undo/redo), Ctrl+C/
 Ctrl+V (copy/paste), Ctrl+D (duplicate), Ctrl+G (group), arrow keys (nudge,
 hold Shift for 10px steps), Ctrl+S (save).
+
+## Examples
+
+A static architecture diagram exported as PNG (icon boxes, bound
+title/subtitle text, orthogonal + straight connectors, drop shadows on
+shapes, an icon, and connectors — including a perfectly vertical connector,
+which used to disappear when a drop shadow was applied before this was
+fixed):
+
+![Static architecture diagram example](docs/examples/architecture-example.png)
+
+A simpler client/server/database flow exported as an animated WebP, showing
+the dashed "marching ants" connector animation plus drop shadows on both an
+exactly vertical and an exactly horizontal connector:
+
+![Animated diagram example](docs/examples/animated-flow-example.webp)
 
 ## More detail
 

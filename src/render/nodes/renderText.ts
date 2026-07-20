@@ -32,6 +32,10 @@ export function renderTextNode(g: SVGGElement, node: TextNode): void {
   setAttrs(g, { transform: `translate(${t.x} ${t.y}) rotate(${t.rotation})` });
   g.replaceChildren();
   const textEl = buildTextElement(node.content, node.font, node.fill);
-  setAttrs(textEl, { opacity: hidden ? 0 : 1, "pointer-events": hidden ? "none" : "all" });
+  setAttrs(textEl, {
+    opacity: hidden ? 0 : 1,
+    "pointer-events": hidden ? "none" : "all",
+    filter: node.filterId ? `url(#${node.filterId})` : undefined,
+  });
   g.appendChild(textEl);
 }

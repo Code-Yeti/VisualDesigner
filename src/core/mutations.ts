@@ -1,4 +1,4 @@
-import type { CanvasConfig, GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
+import type { CanvasConfig, FilterDef, GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
 import { defaultTransform } from "./model";
 import { nextId } from "./ids";
 
@@ -23,6 +23,11 @@ export function updateCanvasConfig(project: Project, patch: Partial<CanvasConfig
 export function upsertGradientDef(project: Project, def: GradientDef): Project {
   const gradients = [...project.defs.gradients.filter((g) => g.id !== def.id), def];
   return { ...project, defs: { ...project.defs, gradients } };
+}
+
+export function upsertFilterDef(project: Project, def: FilterDef): Project {
+  const filters = [...project.defs.filters.filter((f) => f.id !== def.id), def];
+  return { ...project, defs: { ...project.defs, filters } };
 }
 
 /** Removes a node along with any connectors that reference it, so deleting a shape doesn't leave dangling connectors. */

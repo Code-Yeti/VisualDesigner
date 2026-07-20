@@ -1,4 +1,5 @@
-import type { ConnectorNode, MarkerType, Project, ShapeNode } from "@/core/model";
+import type { ConnectorNode, MarkerType, Project, ShapeNode, TextNode } from "@/core/model";
+import { SHAPE_NODE_TYPES } from "@/core/model";
 import { resolvePortWorldPos } from "@/core/geometry";
 import { svgEl, setAttrs } from "./svgUtil";
 
@@ -12,15 +13,91 @@ export function syncDefs(stageDefs: SVGDefsElement, project: Project): void {
 
   for (const id of project.order) {
     const node = project.nodes[id];
-    if (!node || node.type !== "connector") continue;
-    const connector = node as ConnectorNode;
-    syncConnectorGradient(stageDefs, project, connector, neededIds);
-    syncConnectorMarkers(stageDefs, connector, neededIds);
+    if (!node) continue;
+    if (node.type === "connector") {
+      const connector = node as ConnectorNode;
+      syncConnectorGradient(stageDefs, project, connector, neededIds);
+      syncConnectorMarkers(stageDefs, connector, neededIds);
+      syncFilter(stageDefs, project, connector.style.filterId, neededIds, connectorFilterRegion(project, connector));
+    } else if (node.type === "text") {
+      syncFilter(stageDefs, project, (node as TextNode).filterId, neededIds);
+    } else if (SHAPE_NODE_TYPES.has(node.type)) {
+      syncFilter(stageDefs, project, (node as ShapeNode).style.filterId, neededIds);
+    }
   }
 
   for (const el of Array.from(stageDefs.querySelectorAll("[data-generated]"))) {
     if (!neededIds.has(el.id)) el.remove();
   }
+}
+
+/**
+ * Creates/updates the `<filter>` (a single feDropShadow) a shape/text/connector's
+ * `filterId` points at. `userSpaceRegion`, when given, pins the filter region to
+ * absolute coordinates instead of the default objectBoundingBox percentages -
+ * required for connectors (see `connectorFilterRegion`) since objectBoundingBox
+ * is invalid whenever the referencing element's bbox has zero width OR height,
+ * which a perfectly vertical or horizontal connector always has, silently
+ * hiding the whole element. Shapes/text always have non-zero width AND height
+ * so the cheaper percentage-based region is fine for them.
+ */
+function syncFilter(
+  stageDefs: SVGDefsElement,
+  project: Project,
+  filterId: string | undefined,
+  neededIds: Set<string>,
+  userSpaceRegion?: { x: number; y: number; width: number; height: number }
+): void {
+  if (!filterId) return;
+  const def = project.defs.filters.find((f) => f.id === filterId);
+  if (!def) return;
+  neededIds.add(filterId);
+
+  let el = stageDefs.querySelector<SVGFilterElement>(`#${CSS.escape(filterId)}`);
+  if (!el) {
+    el = svgEl("filter", { id: filterId });
+    setAttrs(el, { "data-generated": "true" });
+    stageDefs.appendChild(el);
+  }
+  if (userSpaceRegion) {
+    setAttrs(el, {
+      filterUnits: "userSpaceOnUse",
+      x: userSpaceRegion.x,
+      y: userSpaceRegion.y,
+      width: userSpaceRegion.width,
+      height: userSpaceRegion.height,
+    });
+  } else {
+    // Generous bounds so blur/offset never clip against the filter region's default 10% margin.
+    setAttrs(el, { filterUnits: undefined, x: "-60%", y: "-60%", width: "220%", height: "220%" });
+  }
+  el.replaceChildren(
+    svgEl("feDropShadow", {
+      dx: def.dx,
+      dy: def.dy,
+      stdDeviation: def.blur,
+      "flood-color": def.color,
+      "flood-opacity": def.opacity,
+    })
+  );
+}
+
+/** Absolute filter-region bounds for a connector's drop shadow, padded generously past its two endpoints to cover orthogonal stubs/corners and the shadow's own offset/blur - never zero-width or zero-height even for a perfectly straight vertical/horizontal connector. */
+function connectorFilterRegion(project: Project, connector: ConnectorNode): { x: number; y: number; width: number; height: number } | undefined {
+  const sourceNode = project.nodes[connector.source.nodeId] as ShapeNode | undefined;
+  const targetNode = project.nodes[connector.target.nodeId] as ShapeNode | undefined;
+  const sourcePort = sourceNode?.ports.find((p) => p.id === connector.source.portId);
+  const targetPort = targetNode?.ports.find((p) => p.id === connector.target.portId);
+  if (!sourceNode || !targetNode || !sourcePort || !targetPort) return undefined;
+
+  const a = resolvePortWorldPos(sourceNode, sourcePort);
+  const b = resolvePortWorldPos(targetNode, targetPort);
+  const pad = 80 + connector.markers.size * 2 + connector.cornerRadius + connector.stubLength;
+  const minX = Math.min(a.x, b.x) - pad;
+  const minY = Math.min(a.y, b.y) - pad;
+  const maxX = Math.max(a.x, b.x) + pad;
+  const maxY = Math.max(a.y, b.y) + pad;
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 function syncConnectorGradient(stageDefs: SVGDefsElement, project: Project, connector: ConnectorNode, neededIds: Set<string>): void {

@@ -1,6 +1,6 @@
 import type { Store } from "@/core/store";
 import type { ConnectorNode, Port, Project, ShapeNode } from "@/core/model";
-import { defaultTransform } from "@/core/model";
+import { defaultTransform, SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { nextId } from "@/core/ids";
@@ -8,7 +8,6 @@ import { addNode, updateNode } from "@/core/mutations";
 import { getLocalSize, resolvePortWorldPos } from "@/core/geometry";
 import { svgEl, setAttrs } from "@/render/svgUtil";
 
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 const DEFAULT_MARKER_SIZE = 12;
 
 interface DragState {
@@ -39,7 +38,7 @@ export function attachConnectTool(
     if (!nodeEl) return null;
     const id = nodeEl.getAttribute("data-id")!;
     const node = projectStore.get().nodes[id];
-    if (!node || !SHAPE_TYPES.has(node.type)) return null;
+    if (!node || !SHAPE_NODE_TYPES.has(node.type)) return null;
     const shape = node as ShapeNode;
     const { width, height } = getLocalSize(shape);
     const fx = width > 0 ? (world.x - shape.transform.x) / width : 0;
@@ -123,7 +122,7 @@ export function attachConnectTool(
         stroke: { kind: "solid", color: "#475569" },
         strokeWidth: 2.5,
         dash: "solid",
-        dashLength: 12,
+        dashLength: 8,
         dashRounded: false,
         animated: false,
         animationSeconds: 1,

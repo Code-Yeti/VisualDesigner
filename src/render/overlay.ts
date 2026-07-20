@@ -1,11 +1,10 @@
 import type { Store } from "@/core/store";
 import type { BBox } from "@/core/geometry";
 import type { Project, ShapeNode } from "@/core/model";
+import { SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { getWorldBBox, getGroupWorldBBox, handleWorldPos, resolvePortWorldPos, HANDLE_IDS } from "@/core/geometry";
 import { svgEl, setAttrs } from "./svgUtil";
-
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 function unionBBox(a: BBox, b: BBox): BBox {
   const minX = Math.min(a.x, b.x);
@@ -53,7 +52,7 @@ export function attachSelectionOverlay(
       let union: BBox | null = null;
       for (const id of ids) {
         const node = project.nodes[id];
-        const bbox = node && node.type === "group" ? getGroupWorldBBox(project, id) : node && SHAPE_TYPES.has(node.type) ? getWorldBBox(node as ShapeNode) : null;
+        const bbox = node && node.type === "group" ? getGroupWorldBBox(project, id) : node && SHAPE_NODE_TYPES.has(node.type) ? getWorldBBox(node as ShapeNode) : null;
         if (!bbox) continue;
         selectionLayer.appendChild(svgEl("rect", { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height, class: "selection-outline" }));
         union = union ? unionBBox(union, bbox) : bbox;
@@ -76,7 +75,7 @@ export function attachSelectionOverlay(
       selectionLayer.appendChild(svgEl("rect", { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height, class: "selection-outline" }));
       return; // groups aren't resizable in v1
     }
-    if (!SHAPE_TYPES.has(node.type)) return;
+    if (!SHAPE_NODE_TYPES.has(node.type)) return;
 
     const bbox = getWorldBBox(node as ShapeNode);
     const outline = svgEl("rect", {
@@ -117,7 +116,7 @@ export function attachPortsOverlay(portsLayer: SVGGElement, projectStore: Store<
     const id = view.hoveredShapeId;
     if (!id) return;
     const node = projectStore.get().nodes[id];
-    if (!node || !SHAPE_TYPES.has(node.type)) return;
+    if (!node || !SHAPE_NODE_TYPES.has(node.type)) return;
 
     const shape = node as ShapeNode;
     const interactive = view.activeTool === "connect";

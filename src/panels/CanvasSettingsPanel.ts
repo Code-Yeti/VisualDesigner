@@ -3,7 +3,7 @@ import type { Project } from "@/core/model";
 import { updateCanvasConfig } from "@/core/mutations";
 
 /** Renders into an existing panel element when nothing is selected - the canvas has no other natural home in the properties panel. */
-export function renderCanvasSettings(panel: HTMLElement, projectStore: Store<Project>): void {
+export function renderCanvasSettings(panel: HTMLElement, projectStore: Store<Project>, onResetBoard: () => void): void {
   const { canvas } = projectStore.get();
   const transparent = canvas.background === null;
 
@@ -19,6 +19,9 @@ export function renderCanvasSettings(panel: HTMLElement, projectStore: Store<Pro
     <label class="field">Show grid<input type="checkbox" id="grid-visible" ${canvas.gridVisible ? "checked" : ""}></label>
     <label class="field">Snap to grid<input type="checkbox" id="snap-enabled" ${canvas.snapEnabled ? "checked" : ""}></label>
     <p class="note-text">The grid is a canvas overlay only - it never appears in exported output.</p>
+
+    <h3 class="section-heading">Danger zone</h3>
+    <button id="reset-board-btn" class="danger-btn">Reset board</button>
   `;
 
   panel.querySelector<HTMLInputElement>("#canvas-width")!.addEventListener("input", (e) => {
@@ -48,5 +51,10 @@ export function renderCanvasSettings(panel: HTMLElement, projectStore: Store<Pro
   panel.querySelector<HTMLInputElement>("#snap-enabled")!.addEventListener("change", (e) => {
     const snapEnabled = (e.target as HTMLInputElement).checked;
     projectStore.update((p) => updateCanvasConfig(p, { snapEnabled }));
+  });
+  panel.querySelector<HTMLButtonElement>("#reset-board-btn")!.addEventListener("click", () => {
+    if (window.confirm("Reset the board? This deletes every shape, text, and connector on the canvas. You can still undo it with Ctrl+Z right after.")) {
+      onResetBoard();
+    }
   });
 }

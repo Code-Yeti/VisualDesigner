@@ -52,6 +52,11 @@ export interface FilterDef {
   opacity: number;
 }
 
+/** Matches network.htm's own dropShadow filter exactly, so the "just turn it on" default fits the app's target aesthetic. */
+export function defaultDropShadowFilter(id: string): FilterDef {
+  return { id, kind: "dropShadow", dx: 0, dy: 3, blur: 3.5, color: "#1e293b", opacity: 0.16 };
+}
+
 export interface MarkerDef {
   id: string;
   type: MarkerType;
@@ -74,9 +79,13 @@ export type NodeType =
   | "cloud"
   | "pill"
   | "icon"
+  | "image"
   | "text"
   | "connector"
   | "group";
+
+/** Every node type with shape-like geometry/style/ports - the one place this list lives, imported wherever code needs to distinguish "a shape" from text/connector/group. */
+export const SHAPE_NODE_TYPES: ReadonlySet<NodeType> = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon", "image"]);
 
 export interface BaseNode {
   id: NodeId;
@@ -136,7 +145,7 @@ export function defaultShapeStyle(fill: string, stroke: string, strokeWidth: num
     stroke,
     strokeWidth,
     strokeDash: "solid",
-    strokeDashLength: 12,
+    strokeDashLength: 8,
     strokeDashRounded: false,
     strokeAnimated: false,
     strokeAnimationSeconds: 1,
@@ -151,13 +160,14 @@ export interface BoundTextItem {
 }
 
 export interface ShapeNode extends BaseNode {
-  type: "rect" | "ellipse" | "polygon" | "cloud" | "pill" | "icon";
+  type: "rect" | "ellipse" | "polygon" | "cloud" | "pill" | "icon" | "image";
   geometry: ShapeGeometry;
   style: ShapeStyle;
   ports: Port[];
   /** Title/subtitle text rendered inside the shape, embedded (not a separate node) so it always moves/rotates with its shape. */
   boundText?: { title?: BoundTextItem; subtitle?: BoundTextItem };
   iconKey?: string; // for type === 'icon'
+  imageSrc?: string; // data: URI, for type === 'image' - raster (png/jpg/webp/gif) or SVG, both render via the same <image> element
 }
 
 export interface FontStyle {
@@ -185,6 +195,7 @@ export interface TextNode extends BaseNode {
   content: string;
   font: FontStyle;
   fill: string;
+  filterId?: string;
 }
 
 export type RoutingKind = "straight" | "orthogonal" | "bezier";
@@ -200,6 +211,7 @@ export interface ConnectorStyle {
   dashRounded: boolean;
   animated: boolean;
   animationSeconds: number;
+  filterId?: string;
 }
 
 export interface ConnectorNode extends BaseNode {

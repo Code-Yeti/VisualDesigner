@@ -1,6 +1,7 @@
 import type { HistoryStore } from "@/core/historyStore";
 import type { Store } from "@/core/store";
 import type { NodeId, ShapeNode } from "@/core/model";
+import { SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { getGroupDescendantIds, resolveSelectionRoot, updateNode } from "@/core/mutations";
@@ -8,7 +9,6 @@ import { getGroupWorldBBox, getWorldBBox, snapValue, type BBox } from "@/core/ge
 import { computeAlignmentGuides } from "@/core/alignmentGuides";
 import { svgEl, setAttrs } from "@/render/svgUtil";
 
-const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 const ALIGN_THRESHOLD = 6;
 
 function bboxesIntersect(a: BBox, b: BBox): boolean {
@@ -93,7 +93,7 @@ export function attachSelectMoveTool(
         if (mnode) startPositions.set(mid, { x: mnode.transform.x, y: mnode.transform.y });
       }
       dragIds = [...moveIds];
-      singleShapeId = selected.length === 1 && SHAPE_TYPES.has(node.type) ? id : null;
+      singleShapeId = selected.length === 1 && SHAPE_NODE_TYPES.has(node.type) ? id : null;
       dragging = dragIds.length > 0;
       startWorld = world;
       if (dragging) projectStore.beginGesture();
@@ -142,7 +142,7 @@ export function attachSelectMoveTool(
         if (n.type === "group") {
           const b = getGroupWorldBBox(project, id);
           if (b) others.push(b);
-        } else if (SHAPE_TYPES.has(n.type)) {
+        } else if (SHAPE_NODE_TYPES.has(n.type)) {
           others.push(getWorldBBox(n as ShapeNode));
         }
       }
@@ -191,7 +191,7 @@ export function attachSelectMoveTool(
     for (const id of project.order) {
       const node = project.nodes[id];
       if (!node || node.parentId !== null || node.locked) continue;
-      const bbox = node.type === "group" ? getGroupWorldBBox(project, id) : SHAPE_TYPES.has(node.type) ? getWorldBBox(node as ShapeNode) : null;
+      const bbox = node.type === "group" ? getGroupWorldBBox(project, id) : SHAPE_NODE_TYPES.has(node.type) ? getWorldBBox(node as ShapeNode) : null;
       if (bbox && bboxesIntersect(box, bbox)) hitIds.push(id);
     }
 

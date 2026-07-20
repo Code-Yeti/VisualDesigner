@@ -101,6 +101,19 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
       inner.appendChild(svgEl("circle", { cx: c.cx, cy: c.cy, r: c.r, ...common }));
     }
     entry.body.append(hitArea, inner);
+  } else if (node.type === "image") {
+    const geom = node.geometry as RectGeom;
+    entry.body.appendChild(
+      svgEl("image", {
+        x: 0,
+        y: 0,
+        width: geom.width,
+        height: geom.height,
+        href: node.imageSrc ?? "",
+        preserveAspectRatio: "xMidYMid meet",
+        "pointer-events": pe,
+      })
+    );
   } else if (node.type === "icon") {
     const geom = node.geometry as RectGeom;
     const preset = ICON_PRESETS.find((p) => p.key === iconKey) ?? ICON_PRESETS[0];

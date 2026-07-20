@@ -56,6 +56,7 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     "marker-start": markerStart,
     "marker-end": markerEnd,
     "pointer-events": "none",
+    filter: node.style.filterId ? `url(#${node.style.filterId})` : undefined,
   });
 
   g.append(hitPath, visiblePath);

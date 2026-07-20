@@ -2,11 +2,13 @@ import type { Store } from "@/core/store";
 import type { HistoryStore } from "@/core/historyStore";
 import type { ToolId, ViewState } from "@/core/viewState";
 import { ICON_PRESETS } from "@/core/presets";
+import pkg from "../../package.json";
 
 export interface ToolbarActions {
   onResetView: () => void;
   onSave: () => void;
   onLoad: () => void;
+  onUploadImage: () => void;
 }
 
 export function mountToolbar(
@@ -18,7 +20,7 @@ export function mountToolbar(
   const toolbar = document.createElement("div");
   toolbar.className = "app-toolbar";
   toolbar.innerHTML = `
-    <span class="brand">VisualDesigner</span>
+    <span class="brand">VisualDesigner <span class="app-version">v${pkg.version}</span></span>
     <button data-tool="select" title="Select / Move">Select</button>
     <button data-tool="pan" title="Pan (or hold Space)">Pan</button>
     <span class="toolbar-sep"></span>
@@ -34,6 +36,7 @@ export function mountToolbar(
       <option value="">Icon…</option>
       ${ICON_PRESETS.map((p) => `<option value="${p.key}">${p.label}</option>`).join("")}
     </select>
+    <button id="upload-image-btn" title="Upload an image (PNG/JPG/WebP/GIF) or icon (SVG)">Upload Image</button>
     <span class="toolbar-sep"></span>
     <button id="undo-btn" title="Undo (Ctrl+Z)">&#8630;</button>
     <button id="redo-btn" title="Redo (Ctrl+Y)">&#8631;</button>
@@ -72,6 +75,7 @@ export function mountToolbar(
   toolbar.querySelector("#zoom-reset")!.addEventListener("click", actions.onResetView);
   toolbar.querySelector("#save-btn")!.addEventListener("click", actions.onSave);
   toolbar.querySelector("#load-btn")!.addEventListener("click", actions.onLoad);
+  toolbar.querySelector("#upload-image-btn")!.addEventListener("click", actions.onUploadImage);
   toolbar.querySelector("#undo-btn")!.addEventListener("click", () => historyStore.undo());
   toolbar.querySelector("#redo-btn")!.addEventListener("click", () => historyStore.redo());
 
