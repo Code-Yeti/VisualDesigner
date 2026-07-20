@@ -1,8 +1,9 @@
 import type { Store } from "@/core/store";
-import type { Project } from "@/core/model";
+import type { Project, SceneNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { computeViewBox } from "@/core/viewState";
 import { svgEl, setAttrs } from "./svgUtil";
+import { renderShapeNode, disposeShapeCache } from "./nodes/renderShape";
 
 export interface RendererHandles {
   container: HTMLDivElement;
@@ -11,9 +12,12 @@ export interface RendererHandles {
   contentRoot: SVGGElement;
   overlay: SVGSVGElement;
   gridLayer: SVGGElement;
+  draftLayer: SVGGElement;
   selectionLayer: SVGGElement;
   marqueeLayer: SVGGElement;
 }
+
+const SHAPE_TYPES = new Set<SceneNode["type"]>(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 export function mountRenderer(
   parent: HTMLElement,
@@ -31,9 +35,10 @@ export function mountRenderer(
 
   const overlay = svgEl("svg", { id: "overlay", class: "canvas-svg overlay" });
   const gridLayer = svgEl("g", { id: "grid-layer" });
+  const draftLayer = svgEl("g", { id: "draft-layer" });
   const selectionLayer = svgEl("g", { id: "selection-layer" });
   const marqueeLayer = svgEl("g", { id: "marquee-layer" });
-  overlay.append(gridLayer, selectionLayer, marqueeLayer);
+  overlay.append(gridLayer, draftLayer, selectionLayer, marqueeLayer);
 
   container.append(stage, overlay);
   parent.appendChild(container);
@@ -45,6 +50,7 @@ export function mountRenderer(
     contentRoot,
     overlay,
     gridLayer,
+    draftLayer,
     selectionLayer,
     marqueeLayer,
   };
@@ -71,13 +77,51 @@ export function mountRenderer(
     });
   }
 
+  const elementCache = new Map<string, SVGGElement>();
+
+  function renderNodes() {
+    const project = projectStore.get();
+    const seen = new Set<string>();
+
+    for (const id of project.order) {
+      const node = project.nodes[id];
+      if (!node) continue;
+      seen.add(id);
+
+      let g = elementCache.get(id);
+      if (!g) {
+        g = svgEl("g", { "data-id": id, "data-type": node.type });
+        elementCache.set(id, g);
+      }
+      // appendChild on an already-attached element moves it to the end,
+      // so iterating `order` bottom-to-top keeps DOM order == paint order.
+      contentRoot.appendChild(g);
+
+      if (SHAPE_TYPES.has(node.type)) {
+        renderShapeNode(g, node as Extract<SceneNode, { type: "rect" | "ellipse" }>);
+      }
+    }
+
+    for (const [id, g] of elementCache) {
+      if (!seen.has(id)) {
+        g.remove();
+        elementCache.delete(id);
+        disposeShapeCache(id);
+      }
+    }
+  }
+
   const resizeObserver = new ResizeObserver(() => applyViewBox());
   resizeObserver.observe(container);
 
-  projectStore.subscribe(() => renderBackground());
+  projectStore.subscribe(() => {
+    renderBackground();
+    renderNodes();
+  });
   viewStore.subscribe(() => applyViewBox());
 
   renderBackground();
+  renderNodes();
   // Defer first viewBox application until layout has happened.
   requestAnimationFrame(applyViewBox);
 

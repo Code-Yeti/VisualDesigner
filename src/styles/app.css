@@ -123,3 +123,115 @@ body {
 .canvas-viewport.is-panning {
   cursor: grabbing;
 }
+
+.toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--panel-border);
+  margin: 0 4px;
+}
+
+.panel-placeholder {
+  color: var(--muted);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.field input[type="color"] {
+  width: 40px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+  background: none;
+}
+
+.field input[type="number"] {
+  width: 70px;
+}
+
+.field input[type="range"] {
+  width: 120px;
+}
+
+.danger-btn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid #fca5a5;
+  background: #fef2f2;
+  color: #b91c1c;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.danger-btn:hover {
+  background: #fee2e2;
+}
+
+.layer-row {
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.layer-row:hover {
+  background: #eef2f7;
+}
+
+.layer-row.selected {
+  background: #dbeafe;
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.draft-shape {
+  fill: rgba(37, 99, 235, 0.12);
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 5 4;
+}
+
+.selection-outline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.selection-handle {
+  fill: #ffffff;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.selection-handle[data-handle="n"],
+.selection-handle[data-handle="s"] {
+  cursor: ns-resize;
+}
+.selection-handle[data-handle="e"],
+.selection-handle[data-handle="w"] {
+  cursor: ew-resize;
+}
+.selection-handle[data-handle="ne"],
+.selection-handle[data-handle="sw"] {
+  cursor: nesw-resize;
+}
+.selection-handle[data-handle="nw"],
+.selection-handle[data-handle="se"] {
+  cursor: nwse-resize;
+}
+
+#content-root [data-id] {
+  cursor: move;
+}
