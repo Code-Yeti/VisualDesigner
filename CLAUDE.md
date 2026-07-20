@@ -70,6 +70,17 @@ stable handle so it can be stopped/removed/rebuilt later without `docker ps`
 lookups — see README.md's "Updating an existing container" section for the
 full update flow (`git pull` → `docker stop`/`rm` → rebuild → re-run).
 
+**`nginx.conf`'s `types { }` directive replaces the inherited MIME table,
+it does not add to it.** An earlier revision added `types { application/wasm
+wasm; }` at the server level to get a correct content-type for the
+ffmpeg.wasm binary; this silently discarded nginx's entire built-in
+`mime.types` table for that server block, so *every* other file (`index.html`,
+the JS bundle, CSS) fell back to `default_type` (`application/octet-stream`)
+— which makes a browser download the page instead of rendering it, rather
+than throwing any visible error. The fix is a `location ~* \.wasm$ {
+default_type application/wasm; }` block instead, which sets the type only
+for that one extension without touching the inherited table.
+
 **No lint or test scripts are configured.** There is no ESLint/Prettier config
 and no test runner (Vitest etc.) set up — `npm run typecheck` (or the
 typecheck step inside `npm run build`) is the only automated check. Verifying
