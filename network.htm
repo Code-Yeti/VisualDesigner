@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Site Network Topology</title>
+<style>
+  :root{
+    --wise:#f97316;        --wise-dark:#c2410c;   --wise-light:#fff1e6;  --wise-border:#fbd3ae;
+    --filton:#2563eb;      --filton-dark:#1e40af; --filton-light:#e8f0fe;--filton-border:#bcd2fb;
+    --stroud:#16a34a;      --stroud-dark:#15803d; --stroud-light:#e9f9ee;--stroud-border:#a9e6bf;
+    --dmz:#000000;         --dmz-dark:#000000;    --dmz-light:#f3f3f4;  --dmz-border:#8a8a92;
+    --net:#7c3aed;         --net-dark:#5b21b6;
+    --ink:#1e293b;         --muted:#64748b;       --line:#e2e8f0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    padding:36px 20px;
+    font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background:radial-gradient(circle at 20% 0%, #f3f4fb 0%, #eef1f6 45%, #e9edf3 100%);
+    color:var(--ink);
+  }
+  .container{
+    max-width:1620px;
+    margin:0 auto;
+    background:#ffffff;
+    border-radius:20px;
+    box-shadow:0 10px 40px rgba(30,41,59,0.10), 0 2px 8px rgba(30,41,59,0.06);
+    padding:38px 42px 30px;
+  }
+  .header{
+    text-align:center;
+    padding-bottom:22px;
+    margin-bottom:8px;
+    border-bottom:1px solid var(--line);
+  }
+  .header h1{
+    margin:0 0 8px;
+    font-size:2.1em;
+    letter-spacing:-0.02em;
+    color:var(--ink);
+  }
+  .header .subtitle{
+    color:var(--muted);
+    font-size:1.08em;
+  }
+  .diagram-wrap{
+    width:100%;
+    overflow-x:auto;
+    margin-top:10px;
+  }
+  svg{
+    display:block;
+    width:100%;
+    height:auto;
+    min-width:1120px;
+  }
+  svg text{ font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; user-select:none; }
+
+  /* ---- marching ants (live data flow) ---- */
+  .ants{
+    stroke-linecap:round;
+    stroke-linejoin:round;
+    fill:none;
+    animation:march 0.9s linear infinite;
+  }
+  .ants-slow{ animation-duration:1.3s; }
+  @keyframes march{ to{ stroke-dashoffset:-19; } }
+
+  .lnk-wise{ stroke:var(--wise); stroke-width:4.5; stroke-dasharray:12 7; }
+  .lnk-filton{ stroke:var(--filton); stroke-width:4.5; stroke-dasharray:12 7; }
+  .lnk-stroud{ stroke:var(--stroud); stroke-width:4.5; stroke-dasharray:12 7; }
+  .lnk-dmz{ stroke:var(--dmz); stroke-width:4.5; stroke-dasharray:12 7; }
+  .lnk-hub1{ stroke:url(#gradWiseFilton); stroke-width:5; stroke-dasharray:12 7; }
+  .lnk-hub2{ stroke:url(#gradFiltonStroud); stroke-width:5; stroke-dasharray:12 7; }
+
+  /* ---- static leader / tether lines that tie a label to its link ---- */
+  .tether{ stroke-width:1.6; stroke-dasharray:4 3; fill:none; }
+  .tether-wise{ stroke:var(--wise-dark); }
+  .tether-filton{ stroke:var(--filton-dark); }
+  .tether-stroud{ stroke:var(--stroud-dark); }
+  .tether-dmz{ stroke:var(--dmz); }
+  .tether-hub{ stroke:#94a3b8; }
+
+  /* subtle hover emphasis (progressive enhancement) */
+  .site-group{ cursor:default; }
+  svg:has(.site-wise:hover) .lnk-wise{ stroke-width:6.5; filter:drop-shadow(0 0 4px var(--wise)); }
+  svg:has(.site-filton:hover) .lnk-filton{ stroke-width:6.5; filter:drop-shadow(0 0 4px var(--filton)); }
+  svg:has(.site-stroud:hover) .lnk-stroud{ stroke-width:6.5; filter:drop-shadow(0 0 4px var(--stroud)); }
+  svg:has(.site-dmz:hover) .lnk-dmz{ stroke-width:6.5; filter:drop-shadow(0 0 4px var(--dmz)); }
+  svg:has(.site-wise:hover) .lnk-hub1,
+  svg:has(.site-filton:hover) .lnk-hub1,
+  svg:has(.site-filton:hover) .lnk-hub2,
+  svg:has(.site-stroud:hover) .lnk-hub2{ stroke-width:7; }
+
+  .panel-wise{ fill:var(--wise-light); fill-opacity:0.55; stroke:var(--wise); }
+  .panel-filton{ fill:var(--filton-light); fill-opacity:0.55; stroke:var(--filton); }
+  .panel-stroud{ fill:var(--stroud-light); fill-opacity:0.55; stroke:var(--stroud); }
+  .panel-dmz{ fill:var(--dmz-light); fill-opacity:0.8; stroke:var(--dmz); }
+  .panel-outer{ stroke-width:2; stroke-dasharray:7 5; stroke-opacity:0.65; }
+
+  .box-fill-wise{ fill:#ffffff; stroke:var(--wise-border); }
+  .box-fill-filton{ fill:#ffffff; stroke:var(--filton-border); }
+  .box-fill-stroud{ fill:#ffffff; stroke:var(--stroud-border); }
+  .box-fill-dmz{ fill:#ffffff; stroke:var(--dmz-border); }
+  .box{ stroke-width:2; filter:url(#dropShadow); }
+
+  .pill-wise{ fill:var(--wise); }
+  .pill-filton{ fill:var(--filton); }
+  .pill-stroud{ fill:var(--stroud); }
+  .pill-dmz{ fill:var(--dmz); }
+  .pill-text{ fill:#fff; font-weight:700; font-size:14px; letter-spacing:0.5px; text-anchor:middle; }
+
+  .box-title{ font-weight:700; font-size:15px; }
+  .box-sub{ font-size:12px; fill:#64748b; }
+  .title-wise{ fill:var(--wise-dark); }
+  .title-filton{ fill:var(--filton-dark); }
+  .title-stroud{ fill:var(--stroud-dark); }
+  .title-dmz{ fill:var(--dmz-dark); }
+
+  .icon-wise{ stroke:var(--wise-dark); }
+  .icon-filton{ stroke:var(--filton-dark); }
+  .icon-stroud{ stroke:var(--stroud-dark); }
+  .icon-dmz{ stroke:var(--dmz-dark); }
+  .icon{ fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+
+  .port{ stroke:#fff; stroke-width:2; }
+  .port-wise{ fill:var(--wise-dark); }
+  .port-filton{ fill:var(--filton-dark); }
+  .port-stroud{ fill:var(--stroud-dark); }
+  .port-dmz{ fill:var(--dmz-dark); }
+  .port-net{ fill:var(--net-dark); }
+
+  .badge{ fill:#ffffff; stroke:var(--line); stroke-width:1.3; }
+  .badge-text{ font-size:10.5px; font-weight:700; fill:#475569; text-anchor:middle; letter-spacing:0.3px; }
+
+  .cloud-shape{ fill:#ffffff; stroke:var(--net); stroke-opacity:0.55; stroke-width:2; filter:url(#cloudShadow); }
+  .cloud-title{ fill:var(--net-dark); font-weight:800; font-size:21px; text-anchor:middle; letter-spacing:1px; }
+  .cloud-sub{ fill:var(--net); opacity:0.8; font-size:11px; text-anchor:middle; letter-spacing:0.5px; }
+  .globe-icon{ fill:none; stroke:var(--net); stroke-opacity:0.7; stroke-width:1.6; }
+
+  /* ---- legend / notes ---- */
+  .legend{
+    margin-top:26px;
+    padding:20px 26px;
+    background:#f8fafc;
+    border:1px solid var(--line);
+    border-radius:14px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:22px 34px;
+    align-items:flex-start;
+  }
+  .legend-col{ min-width:220px; flex:1; }
+  .legend-heading{
+    font-size:11px; font-weight:700; letter-spacing:0.6px; color:var(--muted);
+    text-transform:uppercase; margin-bottom:10px;
+  }
+  .swatch-row{ display:flex; align-items:center; gap:10px; margin:7px 0; font-size:13.5px; }
+  .swatch{ width:14px; height:14px; border-radius:4px; flex:none; }
+  .sw-wise{ background:var(--wise); }
+  .sw-filton{ background:var(--filton); }
+  .sw-stroud{ background:var(--stroud); }
+  .sw-dmz{ background:var(--dmz); }
+  .note{ font-size:13.5px; color:#334155; line-height:1.55; margin:0 0 8px; }
+  .note b{ color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <h1>Multi-Site Network Topology</h1>
+    <div class="subtitle">Inter-site routing and internet connectivity — live data flow</div>
+  </div>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 1780 720" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="dropShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="3" stdDeviation="3.5" flood-color="#1e293b" flood-opacity="0.16"/>
+        </filter>
+        <filter id="cloudShadow" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="5" stdDeviation="9" flood-color="#7c3aed" flood-opacity="0.16"/>
+        </filter>
+        <linearGradient id="gradWiseFilton" x1="370" y1="583" x2="570" y2="583" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#f97316"/>
+          <stop offset="1" stop-color="#2563eb"/>
+        </linearGradient>
+        <linearGradient id="gradFiltonStroud" x1="830" y1="583" x2="1030" y2="583" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#2563eb"/>
+          <stop offset="1" stop-color="#16a34a"/>
+        </linearGradient>
+      </defs>
+
+      <!-- ============ INTERNET CLOUD ============ -->
+      <g class="cloud-group">
+        <g class="cloud-shape">
+          <ellipse cx="700" cy="148" rx="150" ry="42"/>
+          <circle cx="615" cy="115" r="40"/>
+          <circle cx="700" cy="95" r="50"/>
+          <circle cx="785" cy="115" r="38"/>
+          <circle cx="660" cy="108" r="30"/>
+          <circle cx="745" cy="110" r="32"/>
+        </g>
+        <g class="globe-icon" transform="translate(675,72)">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M2 12h20M12 2c3.2 3 3.2 17 0 20M12 2c-3.2 3-3.2 17 0 20"/>
+        </g>
+        <text class="cloud-title" x="700" y="158">INTERNET</text>
+        <text class="cloud-sub" x="700" y="173">PUBLIC NETWORK</text>
+      </g>
+
+      <!-- ============ CONNECTORS (drawn first, under boxes) ============ -->
+      <!-- Firewall -> Internet, rounded elbows -->
+      <path class="ants lnk-wise"   d="M240,350 L240,260 Q240,240 260,240 L610,240 Q630,240 630,220 L630,188"/>
+      <path class="ants lnk-filton" d="M700,350 L700,188"/>
+      <path class="ants lnk-stroud" d="M1160,350 L1160,260 Q1160,240 1140,240 L790,240 Q770,240 770,220 L770,188"/>
+
+      <!-- Core switch <-> Core switch (via Filton hub) -->
+      <path class="ants ants-slow lnk-hub1" d="M370,583 L570,583"/>
+      <path class="ants ants-slow lnk-hub2" d="M830,583 L1030,583"/>
+
+      <!-- Firewall <-> Core switch (intra-site) -->
+      <path class="ants lnk-wise"   d="M240,425 L240,545"/>
+      <path class="ants lnk-filton" d="M700,425 L700,545"/>
+      <path class="ants lnk-stroud" d="M1160,425 L1160,545"/>
+
+      <!-- Stroud Firewall <-> DMZ (direct link) -->
+      <path class="ants lnk-dmz" d="M1290,388 L1430,388"/>
+
+      <!-- ===== internet-link badges, tethered off the line so the flow stays visible ===== -->
+      <path class="tether tether-wise"   d="M435,222 L435,240"/>
+      <rect class="badge" x="380" y="198" width="110" height="24" rx="12"/>
+      <text class="badge-text" x="435" y="214">1 Gbps</text>
+
+      <path class="tether tether-filton" d="M745,210 L700,210"/>
+      <rect class="badge" x="735" y="198" width="110" height="24" rx="12"/>
+      <text class="badge-text" x="790" y="214">1 Gbps</text>
+
+      <path class="tether tether-stroud" d="M965,222 L965,240"/>
+      <rect class="badge" x="910" y="198" width="110" height="24" rx="12"/>
+      <text class="badge-text" x="965" y="214">1 Gbps</text>
+
+      <!-- ===== site-link (hub) badges, tethered down to the trunk line ===== -->
+      <path class="tether tether-hub" d="M470,555 L470,583"/>
+      <rect class="badge" x="415" y="531" width="110" height="24" rx="12"/>
+      <text class="badge-text" x="470" y="547">SITE LINK</text>
+
+      <path class="tether tether-hub" d="M930,555 L930,583"/>
+      <rect class="badge" x="875" y="531" width="110" height="24" rx="12"/>
+      <text class="badge-text" x="930" y="547">SITE LINK</text>
+
+      <!-- ============ WISE SITE ============ -->
+      <g class="site-group site-wise">
+        <rect class="panel-outer panel-wise" x="80" y="315" width="320" height="340" rx="18"/>
+        <rect class="pill-wise" x="170" y="295" width="140" height="34" rx="17" filter="url(#dropShadow)"/>
+        <text class="pill-text" x="240" y="317">WISE</text>
+
+        <rect class="box box-fill-wise" x="110" y="350" width="260" height="75" rx="12"/>
+        <g class="icon icon-wise" transform="translate(128,367)">
+          <path d="M12 2 3 5.5v6c0 6 3.8 9.7 9 11 5.2-1.3 9-5 9-11v-6L12 2z"/>
+          <path d="M7.5 11h9M7.5 15h9"/>
+        </g>
+        <text class="box-title title-wise" x="180" y="379">FIREWALL</text>
+        <text class="box-sub" x="180" y="400">Sophos XGS 450</text>
+
+        <rect class="box box-fill-wise" x="110" y="545" width="260" height="75" rx="12"/>
+        <g class="icon icon-wise" transform="translate(128,562)">
+          <rect x="2" y="6" width="20" height="12" rx="2.2"/>
+          <circle cx="6.5" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="10.7" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="14.9" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="19.1" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+        </g>
+        <text class="box-title title-wise" x="180" y="574">CORE SWITCH</text>
+        <text class="box-sub" x="180" y="595">Aruba 8310</text>
+      </g>
+
+      <!-- ============ FILTON SITE (hub) ============ -->
+      <g class="site-group site-filton">
+        <rect class="panel-outer panel-filton" x="540" y="315" width="320" height="340" rx="18"/>
+        <rect class="pill-filton" x="630" y="295" width="140" height="34" rx="17" filter="url(#dropShadow)"/>
+        <text class="pill-text" x="700" y="317">FILTON</text>
+
+        <rect class="box box-fill-filton" x="570" y="350" width="260" height="75" rx="12"/>
+        <g class="icon icon-filton" transform="translate(588,367)">
+          <path d="M12 2 3 5.5v6c0 6 3.8 9.7 9 11 5.2-1.3 9-5 9-11v-6L12 2z"/>
+          <path d="M7.5 11h9M7.5 15h9"/>
+        </g>
+        <text class="box-title title-filton" x="640" y="379">FIREWALL</text>
+        <text class="box-sub" x="640" y="400">Sophos XGS 450</text>
+
+        <rect class="box box-fill-filton" x="570" y="545" width="260" height="75" rx="12"/>
+        <g class="icon icon-filton" transform="translate(588,562)">
+          <rect x="2" y="6" width="20" height="12" rx="2.2"/>
+          <circle cx="6.5" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="10.7" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="14.9" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="19.1" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+        </g>
+        <text class="box-title title-filton" x="640" y="574">CORE SWITCH</text>
+        <text class="box-sub" x="640" y="595">Aruba 8310</text>
+      </g>
+
+      <!-- ============ STROUD SITE ============ -->
+      <g class="site-group site-stroud">
+        <rect class="panel-outer panel-stroud" x="1000" y="315" width="320" height="340" rx="18"/>
+        <rect class="pill-stroud" x="1090" y="295" width="140" height="34" rx="17" filter="url(#dropShadow)"/>
+        <text class="pill-text" x="1160" y="317">STROUD</text>
+
+        <rect class="box box-fill-stroud" x="1030" y="350" width="260" height="75" rx="12"/>
+        <g class="icon icon-stroud" transform="translate(1048,367)">
+          <path d="M12 2 3 5.5v6c0 6 3.8 9.7 9 11 5.2-1.3 9-5 9-11v-6L12 2z"/>
+          <path d="M7.5 11h9M7.5 15h9"/>
+        </g>
+        <text class="box-title title-stroud" x="1100" y="379">FIREWALL</text>
+        <text class="box-sub" x="1100" y="400">Sophos XGS 450</text>
+
+        <rect class="box box-fill-stroud" x="1030" y="545" width="260" height="75" rx="12"/>
+        <g class="icon icon-stroud" transform="translate(1048,562)">
+          <rect x="2" y="6" width="20" height="12" rx="2.2"/>
+          <circle cx="6.5" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="10.7" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="14.9" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+          <circle cx="19.1" cy="12" r="1.3" fill="currentColor" stroke="none"/>
+        </g>
+        <text class="box-title title-stroud" x="1100" y="574">CORE SWITCH</text>
+        <text class="box-sub" x="1100" y="595">Aruba 8310</text>
+      </g>
+
+      <!-- ============ DMZ (perimeter zone, black) ============ -->
+      <g class="site-group site-dmz">
+        <rect class="panel-outer panel-dmz" x="1400" y="315" width="320" height="340" rx="18"/>
+        <rect class="pill-dmz" x="1490" y="295" width="140" height="34" rx="17" filter="url(#dropShadow)"/>
+        <text class="pill-text" x="1560" y="317">DMZ</text>
+
+        <rect class="box box-fill-dmz" x="1430" y="350" width="260" height="75" rx="12"/>
+        <g class="icon icon-dmz" transform="translate(1448,367)">
+          <rect x="4" y="10" width="16" height="12" rx="2.5"/>
+          <path d="M7.5 10V7a4.5 4.5 0 0 1 9 0v3"/>
+          <circle cx="12" cy="16" r="1.4" fill="currentColor" stroke="none"/>
+        </g>
+        <text class="box-title title-dmz" x="1500" y="379">DMZ</text>
+        <text class="box-sub" x="1500" y="400">Perimeter / Segregated Segment</text>
+      </g>
+
+      <!-- ============ CONNECTION PORTS ============ -->
+      <circle class="port port-wise"   cx="240" cy="350" r="5.5"/>
+      <circle class="port port-filton" cx="700" cy="350" r="5.5"/>
+      <circle class="port port-stroud" cx="1160" cy="350" r="5.5"/>
+      <circle class="port port-net" cx="630" cy="188" r="5.5"/>
+      <circle class="port port-net" cx="700" cy="188" r="5.5"/>
+      <circle class="port port-net" cx="770" cy="188" r="5.5"/>
+
+      <circle class="port port-wise"   cx="240" cy="425" r="5"/>
+      <circle class="port port-wise"   cx="240" cy="545" r="5"/>
+      <circle class="port port-filton" cx="700" cy="425" r="5"/>
+      <circle class="port port-filton" cx="700" cy="545" r="5"/>
+      <circle class="port port-stroud" cx="1160" cy="425" r="5"/>
+      <circle class="port port-stroud" cx="1160" cy="545" r="5"/>
+
+      <circle class="port port-wise"   cx="370" cy="583" r="5.5"/>
+      <circle class="port port-filton" cx="570" cy="583" r="5.5"/>
+      <circle class="port port-filton" cx="830" cy="583" r="5.5"/>
+      <circle class="port port-stroud" cx="1030" cy="583" r="5.5"/>
+
+      <circle class="port port-stroud" cx="1290" cy="388" r="5.5"/>
+      <circle class="port port-dmz" cx="1430" cy="388" r="5.5"/>
+    </svg>
+  </div>
+
+  <div class="legend">
+    <div class="legend-col">
+      <div class="legend-heading">Site Key</div>
+      <div class="swatch-row"><span class="swatch sw-wise"></span> Wise — Orange</div>
+      <div class="swatch-row"><span class="swatch sw-filton"></span> Filton — Blue (core routing hub)</div>
+      <div class="swatch-row"><span class="swatch sw-stroud"></span> Stroud — Green</div>
+      <div class="swatch-row"><span class="swatch sw-dmz"></span> DMZ — Black (perimeter zone)</div>
+    </div>
+    <div class="legend-col" style="flex:2; min-width:340px;">
+      <div class="legend-heading">Topology Notes</div>
+      <p class="note">Each site's <b>Sophos XGS 450</b> firewall has its own dedicated <b>1Gb internet</b> connection — internet traffic for a site never transits another site.</p>
+      <p class="note">All three sites run an <b>Aruba 8310</b> core switch. Inter-site traffic between Wise and Stroud routes through the <b>Filton core switch</b>, which acts as the central hub.</p>
+      <p class="note">The <b>DMZ</b> connects directly to the Stroud firewall, isolated from the Wise/Filton inter-site trunk.</p>
+      <p class="note">Animated dashed lines show active data flow; dotted leader lines tether each label to its link; rounded corners mark routing turns.</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
