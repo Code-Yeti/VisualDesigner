@@ -631,16 +631,19 @@ body {
   fill: none;
 }
 
-@keyframes dash-march {
-  to {
-    /* --dash-repeat is set inline per-element to that element's actual dash+gap
-       repeat length (see computeDashRepeatLength) - shifting by anything else
-       makes the loop's per-cycle snap-back visible as a hitch, most noticeable
-       at path/rect corners. 19 is only a fallback for elements that never set it. */
-    stroke-dashoffset: calc(var(--dash-repeat, 19) * -1);
-  }
-}
-
+/*
+ * No shared `@keyframes` here: each animated element gets its own rule,
+ * generated at render time by `ensureDashKeyframe()`
+ * (`src/render/dashKeyframes.ts`) and referenced via an inline
+ * `animation-name`, with a plain numeric `stroke-dashoffset` sized to that
+ * element's own dash+gap repeat length (`computeDashRepeatLength`) so the
+ * loop tiles seamlessly. A single rule parameterized by a CSS custom
+ * property (`calc(var(--dash-repeat) * -1)`) looks like the obvious
+ * alternative, but Chromium silently fails to interpolate it smoothly - it
+ * holds the start value for most of the cycle then jumps to the end value
+ * partway through, which looks like the animation does nothing.
+ */
 .dash-ants {
-  animation: dash-march linear infinite;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
 }

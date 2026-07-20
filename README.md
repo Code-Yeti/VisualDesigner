@@ -1,4 +1,4 @@
-# VisualDesigner v1.1.1
+# VisualDesigner v1.2.0
 
 A browser-based visual diagram editor: draw shapes, text, and connectors,
 then export them as a static image or an animated video. No hand-writing

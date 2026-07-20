@@ -1,9 +1,18 @@
 import type { HistoryStore } from "@/core/historyStore";
 import type { Store } from "@/core/store";
-import type { NodeId, ShapeNode } from "@/core/model";
+import type { NodeId, ShapeNode, TextNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
-import { computeResizedBBox, getWorldBBox, resizeGeometry, snapValue, type BBox, type HandleId } from "@/core/geometry";
+import {
+  computeResizedBBox,
+  getTextWorldBBox,
+  getWorldBBox,
+  resizeGeometry,
+  resizeTextFontSize,
+  snapValue,
+  type BBox,
+  type HandleId,
+} from "@/core/geometry";
 
 export function attachResizeTool(
   container: HTMLElement,
@@ -22,13 +31,13 @@ export function attachResizeTool(
     if (!h) return;
 
     const id = viewStore.get().selectedIds[0];
-    const node = id ? (projectStore.get().nodes[id] as ShapeNode | undefined) : undefined;
-    if (!node) return;
+    const node = id ? projectStore.get().nodes[id] : undefined;
+    if (!node || (node.type !== "text" && !("geometry" in node))) return;
 
     activeId = id;
     handle = h;
     startWorld = clientToWorld(e.clientX, e.clientY, container, viewStore.get());
-    startBBox = getWorldBBox(node);
+    startBBox = node.type === "text" ? getTextWorldBBox(node as TextNode) : getWorldBBox(node as ShapeNode);
     projectStore.beginGesture();
     container.setPointerCapture(e.pointerId);
     e.stopPropagation();
@@ -54,16 +63,33 @@ export function attachResizeTool(
     }
 
     projectStore.update((p) => {
-      const node = p.nodes[activeId!] as ShapeNode | undefined;
+      const node = p.nodes[activeId!];
       if (!node) return p;
-      const geometry = resizeGeometry(node.geometry, startBBox, next);
+
+      if (node.type === "text") {
+        const result = resizeTextFontSize(node as TextNode, handle!, startBBox, next);
+        return {
+          ...p,
+          nodes: {
+            ...p.nodes,
+            [activeId!]: {
+              ...node,
+              transform: { ...node.transform, x: result.x, y: result.y },
+              font: { ...(node as TextNode).font, size: result.fontSize },
+            },
+          },
+        };
+      }
+
+      const shape = node as ShapeNode;
+      const geometry = resizeGeometry(shape.geometry, startBBox, next);
       return {
         ...p,
         nodes: {
           ...p.nodes,
           [activeId!]: {
-            ...node,
-            transform: { ...node.transform, x: next.x, y: next.y },
+            ...shape,
+            transform: { ...shape.transform, x: next.x, y: next.y },
             geometry,
           },
         },

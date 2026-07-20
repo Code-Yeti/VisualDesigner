@@ -18,12 +18,12 @@ function bakeAnimationState(svg: SVGSVGElement, timeSeconds: number): void {
     const styleAttr = el.getAttribute("style") ?? "";
     const durationMatch = /animation-duration:\s*([\d.]+)s/.exec(styleAttr);
     const duration = durationMatch ? parseFloat(durationMatch[1]) : 1;
-    // Each element carries its own --dash-repeat (see computeDashRepeatLength) -
-    // using a single constant here would re-introduce the same seam-jump bug
-    // the live CSS keyframe fixes: it only looks seamless when this exactly
-    // matches that element's actual dash+gap repeat length.
-    const repeatMatch = /--dash-repeat:\s*([\d.]+)/.exec(styleAttr);
-    const dashRepeat = repeatMatch ? parseFloat(repeatMatch[1]) : 19;
+    // Each element carries its own `data-dash-repeat` (see
+    // computeDashRepeatLength) - using a single constant here would
+    // reintroduce the same seam-jump bug the per-element keyframes fix: it
+    // only looks seamless when this exactly matches that element's actual
+    // dash+gap repeat length.
+    const dashRepeat = parseFloat(el.getAttribute("data-dash-repeat") ?? "19");
     const progress = (timeSeconds % duration) / duration;
     el.style.animation = "none";
     el.style.strokeDashoffset = String(-dashRepeat * progress);

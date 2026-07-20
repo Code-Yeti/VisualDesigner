@@ -1,4 +1,4 @@
-import type { CanvasConfig, FilterDef, GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
+import type { CanvasConfig, ConnectorNode, FilterDef, GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
 import { defaultTransform } from "./model";
 import { nextId } from "./ids";
 
@@ -154,38 +154,71 @@ export function deleteNodes(project: Project, ids: NodeId[]): Project {
   return next;
 }
 
-/** Duplicates each selected id (shapes/text get a small offset; groups are reconstructed with fresh child ids) and returns the new top-level ids to select. */
+/**
+ * Duplicates each selected id (shapes/text get a small offset; groups are
+ * reconstructed with fresh child ids) and returns the new top-level ids to
+ * select. New ids for every node in the batch (including group descendants)
+ * are assigned up front into one shared map, so a connector duplicated
+ * alongside its endpoint shapes gets rewired to the *duplicated* copies
+ * instead of staying attached to the originals - a connector whose endpoint
+ * wasn't part of this batch simply keeps pointing at the original shape,
+ * unchanged.
+ */
 export function duplicateNodes(project: Project, ids: NodeId[]): { project: Project; newIds: NodeId[] } {
-  let next = project;
-  const newIds: NodeId[] = [];
   const offset = 20;
+  const idMap = new Map<NodeId, NodeId>();
 
-  for (const id of ids) {
-    const node = next.nodes[id];
-    if (!node) continue;
+  function assignIds(nodeIds: NodeId[]) {
+    for (const id of nodeIds) {
+      if (idMap.has(id)) continue;
+      const node = project.nodes[id];
+      if (!node) continue;
+      idMap.set(id, nextId(node.type));
+      if (node.type === "group") assignIds((node as GroupNode).childIds);
+    }
+  }
+  assignIds(ids);
 
+  function cloneNode(node: SceneNode, newId: NodeId, newParentId: NodeId | null): SceneNode {
+    if (node.type === "connector") {
+      const connector = node as ConnectorNode;
+      return {
+        ...connector,
+        id: newId,
+        parentId: newParentId,
+        source: { ...connector.source, nodeId: idMap.get(connector.source.nodeId) ?? connector.source.nodeId },
+        target: { ...connector.target, nodeId: idMap.get(connector.target.nodeId) ?? connector.target.nodeId },
+      };
+    }
     if (node.type === "group") {
       const group = node as GroupNode;
-      const childMap = new Map<NodeId, NodeId>();
-      for (const childId of group.childIds) {
-        const child = next.nodes[childId];
-        if (!child) continue;
-        const newChildId = nextId(child.type);
-        const clone: SceneNode = { ...child, id: newChildId, transform: { ...child.transform, x: child.transform.x + offset, y: child.transform.y + offset } };
-        next = addNode(next, clone);
-        childMap.set(childId, newChildId);
-      }
-      const newGroupId = nextId("group");
-      const newGroup: GroupNode = { ...group, id: newGroupId, childIds: [...childMap.values()] };
-      next = { ...next, nodes: { ...next.nodes, [newGroupId]: newGroup }, order: [...next.order, newGroupId] };
-      for (const newChildId of childMap.values()) next = updateNode(next, newChildId, { parentId: newGroupId });
-      newIds.push(newGroupId);
-    } else {
-      const newId = nextId(node.type);
-      const clone: SceneNode = { ...node, id: newId, parentId: null, transform: { ...node.transform, x: node.transform.x + offset, y: node.transform.y + offset } };
-      next = addNode(next, clone);
-      newIds.push(newId);
+      return { ...group, id: newId, parentId: newParentId, childIds: group.childIds.map((cid) => idMap.get(cid) ?? cid) };
     }
+    return {
+      ...node,
+      id: newId,
+      parentId: newParentId,
+      transform: { ...node.transform, x: node.transform.x + offset, y: node.transform.y + offset },
+    };
+  }
+
+  let next = project;
+  const newIds: NodeId[] = [];
+
+  function duplicateOne(id: NodeId, newParentId: NodeId | null): NodeId | null {
+    const node = project.nodes[id];
+    if (!node) return null;
+    const newId = idMap.get(id)!;
+    if (node.type === "group") {
+      for (const childId of (node as GroupNode).childIds) duplicateOne(childId, newId);
+    }
+    next = addNode(next, cloneNode(node, newId, newParentId));
+    return newId;
+  }
+
+  for (const id of ids) {
+    const newId = duplicateOne(id, null);
+    if (newId) newIds.push(newId);
   }
 
   return { project: next, newIds };

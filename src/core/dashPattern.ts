@@ -22,3 +22,24 @@ export function computeDashRepeatLength(dash: DashKind, length: number): number 
   if (dash === "dotted") return 2 + 5;
   return length + Math.max(1, length * 0.6);
 }
+
+/**
+ * A valid CSS identifier encoding `repeat`, for use as an `@keyframes` name.
+ * Every marching-ants element needs its *own* keyframes rule with a plain
+ * numeric `stroke-dashoffset` end value - animating to a `calc(var(...))`
+ * expression instead (referencing a shared custom property) silently fails
+ * to interpolate in Chromium: the browser holds the start value for most of
+ * the cycle and snaps straight to the end value partway through, which reads
+ * as "the animation does nothing" rather than smooth motion. So instead of
+ * one shared keyframes rule parameterized by a custom property, each
+ * distinct repeat length gets its own tiny generated rule, memoized/reused
+ * across every element that happens to share that length.
+ */
+export function dashKeyframeName(repeat: number): string {
+  return `dash-march-${repeat.toFixed(2).replace(".", "_").replace("-", "n")}`;
+}
+
+/** The `@keyframes` rule text for `dashKeyframeName(repeat)`. */
+export function dashKeyframeCSS(repeat: number): string {
+  return `@keyframes ${dashKeyframeName(repeat)} { to { stroke-dashoffset: ${-repeat}px; } }`;
+}

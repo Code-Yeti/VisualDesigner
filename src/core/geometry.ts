@@ -1,4 +1,4 @@
-import type { Port, Project, ShapeGeometry, ShapeNode } from "./model";
+import type { Port, Project, ShapeGeometry, ShapeNode, TextNode } from "./model";
 import { getGroupDescendantIds } from "./mutations";
 
 export type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -33,6 +33,62 @@ export function getLocalSize(node: ShapeNode): { width: number; height: number }
 export function getWorldBBox(node: ShapeNode): BBox {
   const size = getLocalSize(node);
   return { x: node.transform.x, y: node.transform.y, ...size };
+}
+
+// Rough average glyph-advance width relative to font size for a typical
+// sans-serif - not exact glyph metrics (that needs DOM measurement), but
+// good enough to place resize handles and compute a resize's scale factor.
+const TEXT_AVG_CHAR_WIDTH_FACTOR = 0.56;
+
+/**
+ * Approximate world bbox for a standalone text node. `buildTextElement`
+ * anchors content at local (0, font.size) with `text-anchor` following
+ * `font.align`, so `transform.x` is the *anchor point* (left/center/right),
+ * not necessarily the box's left edge - shifted here to derive a consistent
+ * left-edge x.
+ */
+export function getTextWorldBBox(node: TextNode): BBox {
+  const lines = node.content.length ? node.content.split("\n") : [""];
+  const lineHeight = node.font.size * 1.25;
+  const longest = Math.max(1, ...lines.map((l) => l.length));
+  const width = Math.max(20, longest * node.font.size * TEXT_AVG_CHAR_WIDTH_FACTOR);
+  const height = Math.max(node.font.size, lines.length * lineHeight);
+
+  let x = node.transform.x;
+  if (node.font.align === "middle") x -= width / 2;
+  else if (node.font.align === "end") x -= width;
+  return { x, y: node.transform.y, width, height };
+}
+
+/**
+ * A text node has no independent width/height - only `font.size` - so a
+ * handle drag is translated into a scale factor (single-axis for edge
+ * handles, averaged for corners) applied to font size, then the box is
+ * re-derived from that new size and re-anchored on the edge/corner opposite
+ * the dragged handle, the same as a shape resize.
+ */
+export function resizeTextFontSize(node: TextNode, handle: HandleId, orig: BBox, dragged: BBox): { fontSize: number; x: number; y: number } {
+  const widthRatio = orig.width > 0 ? dragged.width / orig.width : 1;
+  const heightRatio = orig.height > 0 ? dragged.height / orig.height : 1;
+  const scale = handle === "n" || handle === "s" ? heightRatio : handle === "e" || handle === "w" ? widthRatio : (widthRatio + heightRatio) / 2;
+  // Matches the Properties panel's font-size input range (fontFieldsHtml) so
+  // dragging a handle can't reach a size the manual field itself would reject.
+  const fontSize = Math.min(120, Math.max(6, node.font.size * scale));
+
+  const newBBox = getTextWorldBBox({ ...node, font: { ...node.font, size: fontSize } });
+
+  let x = orig.x;
+  let y = orig.y;
+  if (handle.includes("w")) x = orig.x + orig.width - newBBox.width;
+  if (handle.includes("n")) y = orig.y + orig.height - newBBox.height;
+
+  // x/y above are the box's left/top edge; translate back to the
+  // align-based anchor point that transform.x actually stores.
+  let transformX = x;
+  if (node.font.align === "middle") transformX = x + newBBox.width / 2;
+  else if (node.font.align === "end") transformX = x + newBBox.width;
+
+  return { fontSize, x: transformX, y };
 }
 
 /** Union bbox of a group's descendant shapes; groups have no geometry of their own. */

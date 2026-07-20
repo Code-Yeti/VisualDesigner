@@ -1,4 +1,4 @@
-import type { GroupNode, NodeId, Project, SceneNode } from "./model";
+import type { ConnectorNode, GroupNode, NodeId, Project, SceneNode } from "./model";
 import { nextId } from "./ids";
 import { getGroupDescendantIds } from "./mutations";
 
@@ -31,45 +31,63 @@ export function copyNodes(project: Project, ids: NodeId[]): Clipboard {
   return { entries };
 }
 
-/** Pastes a clipboard snapshot with fresh ids, offset from the copied position (increasing with `offset` for repeated pastes). */
+/**
+ * Pastes a clipboard snapshot with fresh ids, offset from the copied
+ * position (increasing with `offset` for repeated pastes). New ids for
+ * every entry (including group descendants) are assigned into one shared
+ * map up front, so a connector copied alongside its endpoint shapes is
+ * rewired to the *pasted* copies instead of staying attached to whatever
+ * shapes are currently in the live project - a connector whose endpoint
+ * wasn't part of the copied selection simply keeps pointing at the
+ * original, unchanged.
+ */
 export function pasteClipboard(project: Project, clipboard: Clipboard, offset: number): { project: Project; newIds: NodeId[] } {
+  const idMap = new Map<NodeId, NodeId>();
+  for (const entry of clipboard.entries) {
+    idMap.set(entry.root.id, nextId(entry.root.type));
+    for (const child of entry.descendants) idMap.set(child.id, nextId(child.type));
+  }
+
+  function cloneNode(node: SceneNode, newId: NodeId, newParentId: NodeId | null): SceneNode {
+    if (node.type === "connector") {
+      const connector = node as ConnectorNode;
+      return {
+        ...connector,
+        id: newId,
+        parentId: newParentId,
+        source: { ...connector.source, nodeId: idMap.get(connector.source.nodeId) ?? connector.source.nodeId },
+        target: { ...connector.target, nodeId: idMap.get(connector.target.nodeId) ?? connector.target.nodeId },
+      };
+    }
+    if (node.type === "group") {
+      const group = node as GroupNode;
+      return { ...group, id: newId, parentId: newParentId, childIds: group.childIds.map((cid) => idMap.get(cid) ?? cid) };
+    }
+    return {
+      ...node,
+      id: newId,
+      parentId: newParentId,
+      transform: { ...node.transform, x: node.transform.x + offset, y: node.transform.y + offset },
+    };
+  }
+
   let next = project;
   const newIds: NodeId[] = [];
 
   for (const entry of clipboard.entries) {
-    if (entry.root.type === "group") {
-      const idMap = new Map<NodeId, NodeId>();
-      for (const child of entry.descendants) idMap.set(child.id, nextId(child.type));
+    const newRootId = idMap.get(entry.root.id)!;
 
+    if (entry.root.type === "group") {
       for (const child of entry.descendants) {
         const newChildId = idMap.get(child.id)!;
-        const clone: SceneNode = {
-          ...child,
-          id: newChildId,
-          parentId: null,
-          transform: { ...child.transform, x: child.transform.x + offset, y: child.transform.y + offset },
-        };
+        const clone = cloneNode(child, newChildId, newRootId);
         next = { ...next, nodes: { ...next.nodes, [newChildId]: clone }, order: [...next.order, newChildId] };
       }
-
-      const newGroupId = nextId("group");
-      const newGroup: GroupNode = { ...(entry.root as GroupNode), id: newGroupId, childIds: [...idMap.values()] };
-      next = { ...next, nodes: { ...next.nodes, [newGroupId]: newGroup }, order: [...next.order, newGroupId] };
-      for (const newChildId of idMap.values()) {
-        next = { ...next, nodes: { ...next.nodes, [newChildId]: { ...next.nodes[newChildId], parentId: newGroupId } } };
-      }
-      newIds.push(newGroupId);
-    } else {
-      const newId = nextId(entry.root.type);
-      const clone: SceneNode = {
-        ...entry.root,
-        id: newId,
-        parentId: null,
-        transform: { ...entry.root.transform, x: entry.root.transform.x + offset, y: entry.root.transform.y + offset },
-      };
-      next = { ...next, nodes: { ...next.nodes, [newId]: clone }, order: [...next.order, newId] };
-      newIds.push(newId);
     }
+
+    const rootClone = cloneNode(entry.root, newRootId, null);
+    next = { ...next, nodes: { ...next.nodes, [newRootId]: rootClone }, order: [...next.order, newRootId] };
+    newIds.push(newRootId);
   }
 
   return { project: next, newIds };

@@ -2,6 +2,7 @@ import type { PolygonGeom, RectGeom, EllipseGeom, CloudGeom, ShapeNode } from "@
 import { CLOUD_BASE, ICON_PRESETS } from "@/core/presets";
 import { getBoundTextLayout } from "@/core/textLayout";
 import { computeDashArray, computeDashRepeatLength } from "@/core/dashPattern";
+import { ensureDashKeyframe } from "../dashKeyframes";
 import { svgEl, setAttrs } from "../svgUtil";
 import { buildTextElement } from "./renderText";
 
@@ -51,6 +52,7 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
   entry.body.replaceChildren();
 
   const fill = fillValue(node);
+  const dashRepeat = style.strokeAnimated ? computeDashRepeatLength(style.strokeDash, style.strokeDashLength) : undefined;
   const common = {
     fill,
     stroke: style.stroke,
@@ -58,9 +60,8 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
     "stroke-dasharray": computeDashArray(style.strokeDash, style.strokeDashLength),
     "stroke-linecap": style.strokeDash !== "solid" && style.strokeDashRounded ? "round" : undefined,
     class: style.strokeAnimated ? "dash-ants" : undefined,
-    style: style.strokeAnimated
-      ? `animation-duration:${style.strokeAnimationSeconds}s;--dash-repeat:${computeDashRepeatLength(style.strokeDash, style.strokeDashLength)}`
-      : undefined,
+    style: dashRepeat !== undefined ? `animation-name:${ensureDashKeyframe(dashRepeat)};animation-duration:${style.strokeAnimationSeconds}s` : undefined,
+    "data-dash-repeat": dashRepeat,
   };
   const pe = hidden ? "none" : "all";
 

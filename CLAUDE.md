@@ -153,6 +153,17 @@ act on "whatever the user selected" (move, delete, duplicate, copy/paste,
 align, arrow-nudge) goes through these two functions rather than assuming a
 selected id is a leaf node.
 
+**Duplicate (`duplicateNodes` in `core/mutations.ts`) and paste
+(`pasteClipboard` in `core/clipboard.ts`) both assign every new id into one
+shared map *before* cloning anything**, rather than assigning ids as they go.
+A connector's `source.nodeId`/`target.nodeId` is rewired through that map
+(falling back to the original id if the endpoint wasn't part of the same
+batch), so duplicating/pasting a shape *and* its connector together produces
+a self-contained copy wired to the new shapes, while duplicating either one
+alone leaves the connector pointing at whichever shape wasn't part of the
+batch, unchanged. The map has to exist up front because a connector can
+appear before or after its endpoint shapes in the selection/clipboard order.
+
 ### The Properties panel must re-fetch nodes/defs fresh inside every `projectStore.update()` callback
 
 `PropertiesPanel.ts` skips rebuilding its `innerHTML` while an input inside it
@@ -213,24 +224,45 @@ pattern). Two non-obvious things every new pointer-based tool needs to know:
   after, unless the handler calls `e.preventDefault()` too. See
   `textTool.ts`.
 
-### Marching-ants dash animation (`core/dashPattern.ts`, `.dash-ants` in `app.css`)
+### Marching-ants dash animation (`core/dashPattern.ts`, `render/dashKeyframes.ts`)
 
-The shared `dash-march` `@keyframes` shifts `stroke-dashoffset` to
-`calc(var(--dash-repeat) * -1)` - a CSS custom property, not a hardcoded
-number - because the loop only looks seamless when that shift exactly equals
-the element's own dash+gap repeat length (`computeDashRepeatLength()`), which
-varies per node since dash length is user-configurable. Get this wrong (as a
-prior version did, with a hardcoded `-19` sized for the pre-1.0 default dash
-length of 12) and the animation still *plays*, but each cycle's snap-back
-becomes a visible one-frame hitch - barely noticeable on a straight run with
-no fixed reference point, but jarring at a path corner or rounded-rect corner
-where the eye can see the dash position jump relative to a fixed vertex.
-Every render site that sets `--dash-repeat` inline (`renderShape.ts`,
-`renderConnector.ts`) must derive it from `computeDashRepeatLength()`, and
-`frameSampler.ts`'s baked-frame export path and `svgExport.ts`'s embedded
-standalone stylesheet both read/reference the same per-element custom
-property rather than a shared constant, so exported video/WebP/SVG loop
-identically to the live canvas.
+Each animated element gets its **own** generated `@keyframes` rule with a
+plain numeric `stroke-dashoffset` end value, sized to that element's own
+dash+gap repeat length (`computeDashRepeatLength()`) — never a single shared
+rule parameterized by a CSS custom property. Two different bugs live at this
+seam, both already hit in this codebase:
+
+- **Wrong repeat length → visible per-cycle hitch.** A shared rule with a
+  hardcoded end value (a prior version used `-19`, sized for the pre-1.0
+  default dash length of 12) only loops seamlessly for nodes whose repeat
+  length happens to match. Get it wrong and the dashes visibly snap once per
+  cycle - barely noticeable on a straight run with no fixed reference point,
+  but jarring at a path corner or rounded-rect corner where the eye can see
+  the jump relative to a fixed vertex.
+- **`calc(var(...))` in the keyframe → animation doesn't move at all.** The
+  obvious fix for the length-mismatch problem is one shared rule that reads a
+  per-element CSS custom property: `to { stroke-dashoffset: calc(var(--dash-repeat) * -1); }`.
+  This is a real trap: Chromium does not smoothly interpolate `stroke-dashoffset`
+  toward a `calc(var(...))` target even with the custom property registered
+  via `@property` - it holds the start value for most of the cycle and snaps
+  straight to the end value partway through, which reads as "the animation
+  does nothing" rather than "wrong length." Confirmed by directly sampling
+  `getComputedStyle().strokeDashoffset` over time in a real browser; a
+  control case with a plain literal end value interpolated correctly.
+
+The actual fix, `ensureDashKeyframe()` (`render/dashKeyframes.ts`), memoizes
+one generated `@keyframes dash-march-<repeat>` rule per distinct repeat
+length (injected into `document.head`, reused across every node that shares
+that length) and points each element's inline `animation-name` at its own
+rule; `dashKeyframeName()`/`dashKeyframeCSS()` in `core/dashPattern.ts` are
+the pure name/rule-text builders shared with the export path. Every animated
+element also carries a plain `data-dash-repeat` attribute (not a style
+property) purely as a data channel: `frameSampler.ts`'s baked-frame export
+path reads it directly instead of re-deriving the repeat length, and
+`svgExport.ts`'s embedded standalone stylesheet scans the exported content
+for whichever distinct repeat lengths are actually present and embeds only
+those elements' keyframes, so exported video/WebP/SVG loop identically to
+the live canvas.
 
 ### Export pipeline (`src/export/`)
 
@@ -280,13 +312,19 @@ verified end-to-end in a real browser, not just typechecked:
   within a max dimension, aspect ratio preserved) and fully resizable
 - Drop shadows: shapes, text, and connectors can each toggle a drop shadow
   (offset X/Y, blur, color, opacity) with a `network.htm`-matching default
-- Text: standalone tool + title/subtitle bound to shapes, full font controls
+- Text: standalone tool + title/subtitle bound to shapes, full font controls,
+  resize handles (drag scales `font.size`, anchored on the opposite
+  edge/corner from the dragged handle - a text node has no independent
+  width/height, so there's nothing else *to* resize)
 - Ports/connectors: default + custom ports, straight/orthogonal/bezier
   routing, dash styles (default dash length 8 everywhere), marching-ants
   animation, solid/auto/custom-gradient stroke, arrow/openArrow/circle/diamond
   terminators
-- Grouping, multi-select (shift-click + marquee drag), align/distribute,
-  copy/paste, duplicate
+- Grouping, multi-select (shift-click + marquee drag), align/distribute
+  (text nodes participate with a real - if approximate - bbox, not a
+  zero-size point), copy/paste, duplicate (a connector duplicated/pasted
+  alongside its endpoint shapes is rewired to the new copies, not left
+  attached to the originals)
 - Canvas size/background config, grid + snap-to-grid
 - Save/load `.json`, localStorage autosave with restore prompt
 - Reset board: red "Reset board" button in the canvas-settings panel (shown
@@ -301,11 +339,14 @@ verified end-to-end in a real browser, not just typechecked:
 
 ### Known gaps (not started / partial)
 
-- **Duplicated/pasted connectors still reference the original shapes' ports**,
-  not re-wired to any duplicated/pasted copies of those shapes. Fine when
-  duplicating a shape alone; a bit surprising if you duplicate a shape *and*
-  its connector together expecting a self-contained copy.
-- **Text nodes have no resize handles** — only move; font size is the only
-  way to change a text node's rendered size.
-- Alignment/distribute treats text nodes as a zero-size point at their own
-  position (no tracked text-bbox model) and skips connectors entirely.
+- **Text bboxes (`getTextWorldBBox` in `core/geometry.ts`) are estimated from
+  font metrics** (average glyph-advance width × character count, line height
+  × line count), not measured from the actual rendered glyphs (which would
+  need a live DOM `getBBox()` call plumbed through the otherwise-pure
+  resize/align/overlay code paths). Good enough for resize-handle placement
+  and align/distribute, since both only need *relative* sizing/positioning,
+  but the drawn selection outline can be a few pixels off from the glyphs'
+  true ink for unusual fonts or letter-spacing.
+- Connectors are still excluded from align/distribute (by design, not as a
+  gap to fill): both endpoints are derived from whatever shape/port they
+  reference, so a connector has no independent position of its own to align.

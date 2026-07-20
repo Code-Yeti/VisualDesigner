@@ -1,16 +1,16 @@
-import type { NodeId, Project, ShapeNode } from "./model";
+import type { NodeId, Project, ShapeNode, TextNode } from "./model";
 import { SHAPE_NODE_TYPES } from "./model";
 import { getGroupDescendantIds, updateNode } from "./mutations";
-import { getGroupWorldBBox, getWorldBBox, type BBox } from "./geometry";
+import { getGroupWorldBBox, getTextWorldBBox, getWorldBBox, type BBox } from "./geometry";
 
 export type AlignMode = "left" | "centerX" | "right" | "top" | "centerY" | "bottom";
 
-/** Text nodes have no tracked geometry, so they align as a zero-size point at their own position; connectors are skipped. */
+/** Connectors have no adjustable position of their own (both endpoints are derived from the shapes/ports they reference), so they're the only node type skipped here. */
 function getAlignBBox(project: Project, id: NodeId): BBox | null {
   const node = project.nodes[id];
   if (!node) return null;
   if (node.type === "group") return getGroupWorldBBox(project, id);
-  if (node.type === "text") return { x: node.transform.x, y: node.transform.y, width: 0, height: 0 };
+  if (node.type === "text") return getTextWorldBBox(node as TextNode);
   if (SHAPE_NODE_TYPES.has(node.type)) return getWorldBBox(node as ShapeNode);
   return null;
 }

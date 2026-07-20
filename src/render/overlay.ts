@@ -1,9 +1,9 @@
 import type { Store } from "@/core/store";
 import type { BBox } from "@/core/geometry";
-import type { Project, ShapeNode } from "@/core/model";
+import type { Project, ShapeNode, TextNode } from "@/core/model";
 import { SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-import { getWorldBBox, getGroupWorldBBox, handleWorldPos, resolvePortWorldPos, HANDLE_IDS } from "@/core/geometry";
+import { getWorldBBox, getGroupWorldBBox, getTextWorldBBox, handleWorldPos, resolvePortWorldPos, HANDLE_IDS } from "@/core/geometry";
 import { svgEl, setAttrs } from "./svgUtil";
 
 function unionBBox(a: BBox, b: BBox): BBox {
@@ -12,6 +12,16 @@ function unionBBox(a: BBox, b: BBox): BBox {
   const maxX = Math.max(a.x + a.width, b.x + b.width);
   const maxY = Math.max(a.y + a.height, b.y + b.height);
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** Bbox for whichever node types a selection outline/handles can be drawn for - shapes, text, and (outline only) groups. */
+function selectableBBox(project: Project, id: string): BBox | null {
+  const node = project.nodes[id];
+  if (!node) return null;
+  if (node.type === "group") return getGroupWorldBBox(project, id);
+  if (node.type === "text") return getTextWorldBBox(node as TextNode);
+  if (SHAPE_NODE_TYPES.has(node.type)) return getWorldBBox(node as ShapeNode);
+  return null;
 }
 
 /** Pure UI chrome, drawn only in the overlay SVG - export code (M9) never touches this layer, so the grid can never leak into an exported file. */
@@ -51,8 +61,7 @@ export function attachSelectionOverlay(
     if (ids.length > 1) {
       let union: BBox | null = null;
       for (const id of ids) {
-        const node = project.nodes[id];
-        const bbox = node && node.type === "group" ? getGroupWorldBBox(project, id) : node && SHAPE_NODE_TYPES.has(node.type) ? getWorldBBox(node as ShapeNode) : null;
+        const bbox = selectableBBox(project, id);
         if (!bbox) continue;
         selectionLayer.appendChild(svgEl("rect", { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height, class: "selection-outline" }));
         union = union ? unionBBox(union, bbox) : bbox;
@@ -75,9 +84,9 @@ export function attachSelectionOverlay(
       selectionLayer.appendChild(svgEl("rect", { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height, class: "selection-outline" }));
       return; // groups aren't resizable in v1
     }
-    if (!SHAPE_NODE_TYPES.has(node.type)) return;
+    const bbox = selectableBBox(project, id);
+    if (!bbox) return;
 
-    const bbox = getWorldBBox(node as ShapeNode);
     const outline = svgEl("rect", {
       x: bbox.x,
       y: bbox.y,

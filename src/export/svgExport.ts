@@ -1,12 +1,28 @@
 import type { Project } from "@/core/model";
+import { dashKeyframeCSS } from "@/core/dashPattern";
 import { SVG_NS } from "@/render/svgUtil";
 
 // Re-embedded here because the exported file is opened standalone, with no
 // access to the app's own stylesheet.
-const EMBEDDED_STYLE = `
-  @keyframes dash-march { to { stroke-dashoffset: calc(var(--dash-repeat, 19) * -1); } }
-  .dash-ants { animation-name: dash-march; animation-timing-function: linear; animation-iteration-count: infinite; }
-`;
+const BASE_STYLE = `.dash-ants { animation-timing-function: linear; animation-iteration-count: infinite; }`;
+
+/**
+ * Each marching-ants element carries its own `data-dash-repeat` (see
+ * `computeDashRepeatLength` and `render/dashKeyframes.ts`'s `ensureDashKeyframe`,
+ * whose live document.head-injected rules this exported file has no access
+ * to) and references its matching `@keyframes` rule by name via inline
+ * `animation-name`. Rather than embed every rule the live app has ever
+ * generated, scan the actual exported content for which repeat lengths are
+ * in play and embed only those.
+ */
+function buildDashKeyframesStyle(exportedContent: Element): string {
+  const repeats = new Set<number>();
+  exportedContent.querySelectorAll("[data-dash-repeat]").forEach((el) => {
+    const value = parseFloat(el.getAttribute("data-dash-repeat") ?? "");
+    if (!Number.isNaN(value)) repeats.add(value);
+  });
+  return [...repeats].map(dashKeyframeCSS).join(" ");
+}
 
 /**
  * Builds a standalone SVG element from the real stage DOM (defs + content
@@ -22,8 +38,10 @@ export function buildExportSVGElement(project: Project, stageDefs: SVGDefsElemen
   svg.setAttribute("width", String(project.canvas.width));
   svg.setAttribute("height", String(project.canvas.height));
 
+  const clonedContent = contentRoot.cloneNode(true) as SVGGElement;
+
   const style = document.createElementNS(SVG_NS, "style");
-  style.textContent = EMBEDDED_STYLE;
+  style.textContent = `${BASE_STYLE}\n${buildDashKeyframesStyle(clonedContent)}`;
   svg.appendChild(style);
 
   if (project.canvas.background) {
@@ -37,7 +55,7 @@ export function buildExportSVGElement(project: Project, stageDefs: SVGDefsElemen
   }
 
   svg.appendChild(stageDefs.cloneNode(true));
-  svg.appendChild(contentRoot.cloneNode(true));
+  svg.appendChild(clonedContent);
 
   return svg;
 }
