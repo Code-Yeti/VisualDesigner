@@ -18,6 +18,7 @@ import { mountLayersPanel } from "@/panels/LayersPanel";
 import { mountPropertiesPanel } from "@/panels/PropertiesPanel";
 import { downloadProjectFile, openProjectFilePicker } from "@/io/fileDialogs";
 import { attachAutosave, clearAutosave, loadAutosave } from "@/io/autosave";
+import { mountExportMenu } from "@/panels/ExportPanel";
 
 const project = createEmptyProject(1200, 700);
 const projectStore = new Store<Project>(project);
@@ -29,7 +30,7 @@ function resetViewToFitCanvas() {
   viewStore.patch(createInitialViewState(projectStore.get().canvas.width, projectStore.get().canvas.height));
 }
 
-mountToolbar(app, viewStore, {
+const toolbar = mountToolbar(app, viewStore, {
   onResetView: resetViewToFitCanvas,
   onSave: () => downloadProjectFile(projectStore.get()),
   onLoad: () => {
@@ -71,6 +72,8 @@ attachConnectTool(handles.container, handles.draftLayer, projectStore, viewStore
 const textEditOverlay = createTextEditOverlay(handles.container);
 attachTextTool(handles.container, projectStore, viewStore, textEditOverlay);
 attachTextEditTool(handles.container, projectStore, viewStore, textEditOverlay);
+
+mountExportMenu(toolbar, () => ({ project: projectStore.get(), stageDefs: handles.stageDefs, contentRoot: handles.contentRoot }));
 
 attachAutosave(projectStore);
 
