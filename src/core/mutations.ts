@@ -1,4 +1,4 @@
-import type { NodeId, Project, SceneNode } from "./model";
+import type { GradientDef, NodeId, Project, SceneNode } from "./model";
 
 export function addNode(project: Project, node: SceneNode): Project {
   return {
@@ -12,6 +12,11 @@ export function removeNode(project: Project, id: NodeId): Project {
   const nodes = { ...project.nodes };
   delete nodes[id];
   return { ...project, nodes, order: project.order.filter((x) => x !== id) };
+}
+
+export function upsertGradientDef(project: Project, def: GradientDef): Project {
+  const gradients = [...project.defs.gradients.filter((g) => g.id !== def.id), def];
+  return { ...project, defs: { ...project.defs, gradients } };
 }
 
 /** Removes a node along with any connectors that reference it, so deleting a shape doesn't leave dangling connectors. */

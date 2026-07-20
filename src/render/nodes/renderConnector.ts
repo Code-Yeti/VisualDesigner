@@ -1,6 +1,7 @@
 import type { ConnectorNode, Project, ShapeNode } from "@/core/model";
 import { resolvePortWorldPos } from "@/core/geometry";
 import { computePath } from "@/core/routing";
+import { markerDefId } from "../defsManager";
 import { svgEl, setAttrs } from "../svgUtil";
 
 function strokeValue(node: ConnectorNode): string {
@@ -37,6 +38,10 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     "stroke-width": Math.max(16, node.style.strokeWidth * 4),
     "pointer-events": "stroke",
   });
+  const solidStrokeColor = node.style.stroke.kind === "solid" ? node.style.stroke.color : "#475569";
+  const markerStart = node.markers.start !== "none" ? `url(#${markerDefId(node.markers.start, solidStrokeColor, "start")})` : undefined;
+  const markerEnd = node.markers.end !== "none" ? `url(#${markerDefId(node.markers.end, solidStrokeColor, "end")})` : undefined;
+
   const visiblePath = svgEl("path", {
     d,
     fill: "none",
@@ -45,6 +50,8 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
     "stroke-dasharray": node.style.dash === "dashed" ? "12 7" : node.style.dash === "dotted" ? "2 5" : undefined,
     class: node.style.animated ? "connector-ants" : undefined,
     style: node.style.animated ? `animation-duration:${node.style.animationSeconds}s` : undefined,
+    "marker-start": markerStart,
+    "marker-end": markerEnd,
     "pointer-events": "none",
   });
 

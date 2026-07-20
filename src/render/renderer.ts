@@ -6,6 +6,7 @@ import { svgEl, setAttrs } from "./svgUtil";
 import { renderShapeNode, disposeShapeCache } from "./nodes/renderShape";
 import { renderTextNode } from "./nodes/renderText";
 import { renderConnectorNode } from "./nodes/renderConnector";
+import { syncDefs } from "./defsManager";
 
 export interface RendererHandles {
   container: HTMLDivElement;
@@ -86,6 +87,7 @@ export function mountRenderer(
 
   function renderNodes() {
     const project = projectStore.get();
+    syncDefs(stageDefs, project);
     const seen = new Set<string>();
 
     for (const id of project.order) {
