@@ -257,6 +257,99 @@ body {
   stroke-dasharray: 4 3;
 }
 
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 340px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-dialog h3 {
+  margin: 0 0 16px;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.progress-wrap {
+  margin: 14px 0;
+}
+
+.progress-wrap.hidden {
+  display: none;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.modal-actions button {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--panel-border);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.modal-actions .secondary-btn {
+  background: #fff;
+  color: var(--ink);
+}
+
+#animate-export-btn {
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  color: var(--ink);
+}
+
 .export-menu-wrapper {
   position: relative;
   display: inline-block;

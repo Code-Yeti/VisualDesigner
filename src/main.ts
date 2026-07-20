@@ -19,6 +19,7 @@ import { mountPropertiesPanel } from "@/panels/PropertiesPanel";
 import { downloadProjectFile, openProjectFilePicker } from "@/io/fileDialogs";
 import { attachAutosave, clearAutosave, loadAutosave } from "@/io/autosave";
 import { mountExportMenu } from "@/panels/ExportPanel";
+import { mountAnimatedExportButton } from "@/panels/AnimatedExportDialog";
 
 const project = createEmptyProject(1200, 700);
 const projectStore = new Store<Project>(project);
@@ -73,7 +74,9 @@ const textEditOverlay = createTextEditOverlay(handles.container);
 attachTextTool(handles.container, projectStore, viewStore, textEditOverlay);
 attachTextEditTool(handles.container, projectStore, viewStore, textEditOverlay);
 
-mountExportMenu(toolbar, () => ({ project: projectStore.get(), stageDefs: handles.stageDefs, contentRoot: handles.contentRoot }));
+const getExportables = () => ({ project: projectStore.get(), stageDefs: handles.stageDefs, contentRoot: handles.contentRoot });
+mountExportMenu(toolbar, getExportables);
+mountAnimatedExportButton(toolbar, getExportables);
 
 attachAutosave(projectStore);
 

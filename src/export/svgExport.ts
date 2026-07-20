@@ -9,13 +9,14 @@ const EMBEDDED_STYLE = `
 `;
 
 /**
- * Builds a standalone SVG string from the real stage DOM (defs + content
+ * Builds a standalone SVG element from the real stage DOM (defs + content
  * root only - #overlay, which holds the grid/handles/marquee, is never
  * referenced here, so there is no code path that could leak it into the
- * export).
+ * export). Returned as a live element (not yet serialized) so callers like
+ * the animation frame sampler can patch per-frame state before stringifying.
  */
-export function exportProjectToSVGString(project: Project, stageDefs: SVGDefsElement, contentRoot: SVGGElement): string {
-  const svg = document.createElementNS(SVG_NS, "svg");
+export function buildExportSVGElement(project: Project, stageDefs: SVGDefsElement, contentRoot: SVGGElement): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg") as SVGSVGElement;
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   svg.setAttribute("viewBox", `0 0 ${project.canvas.width} ${project.canvas.height}`);
   svg.setAttribute("width", String(project.canvas.width));
@@ -38,7 +39,11 @@ export function exportProjectToSVGString(project: Project, stageDefs: SVGDefsEle
   svg.appendChild(stageDefs.cloneNode(true));
   svg.appendChild(contentRoot.cloneNode(true));
 
-  return new XMLSerializer().serializeToString(svg);
+  return svg;
+}
+
+export function exportProjectToSVGString(project: Project, stageDefs: SVGDefsElement, contentRoot: SVGGElement): string {
+  return new XMLSerializer().serializeToString(buildExportSVGElement(project, stageDefs, contentRoot));
 }
 
 export function downloadSVG(project: Project, stageDefs: SVGDefsElement, contentRoot: SVGGElement, filename = "diagram.svg"): void {
