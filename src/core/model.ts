@@ -123,12 +123,19 @@ export interface ShapeStyle {
   filterId?: string;
 }
 
+export interface BoundTextItem {
+  content: string;
+  font: FontStyle;
+  fill: string;
+}
+
 export interface ShapeNode extends BaseNode {
   type: "rect" | "ellipse" | "polygon" | "cloud" | "pill" | "icon";
   geometry: ShapeGeometry;
   style: ShapeStyle;
   ports: Port[];
-  boundText?: { titleId?: NodeId; subtitleId?: NodeId };
+  /** Title/subtitle text rendered inside the shape, embedded (not a separate node) so it always moves/rotates with its shape. */
+  boundText?: { title?: BoundTextItem; subtitle?: BoundTextItem };
   iconKey?: string; // for type === 'icon'
 }
 

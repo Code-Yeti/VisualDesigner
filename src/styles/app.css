@@ -262,3 +262,55 @@ body {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.text-edit-overlay {
+  position: fixed;
+  min-width: 120px;
+  min-height: 28px;
+  padding: 2px 4px;
+  border: 1.5px solid var(--accent);
+  border-radius: 4px;
+  background: #ffffff;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 14px;
+  line-height: 1.25;
+  resize: both;
+  z-index: 50;
+  box-shadow: 0 4px 16px rgba(30, 41, 59, 0.18);
+}
+
+.bound-text [data-bound] {
+  cursor: text;
+}
+
+.section-heading {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.secondary-btn {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px dashed var(--panel-border);
+  background: #fff;
+  color: var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.secondary-btn:hover {
+  background: #eef2f7;
+}
+
+.subsection {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--panel-border);
+}
+
+.field input[type="text"] {
+  width: 140px;
+}

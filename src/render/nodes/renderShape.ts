@@ -1,9 +1,12 @@
 import type { PolygonGeom, RectGeom, EllipseGeom, CloudGeom, ShapeNode } from "@/core/model";
 import { CLOUD_BASE, ICON_PRESETS } from "@/core/presets";
+import { getBoundTextLayout } from "@/core/textLayout";
 import { svgEl, setAttrs } from "../svgUtil";
+import { buildTextElement } from "./renderText";
 
 interface Entry {
   body: SVGGElement;
+  textGroup: SVGGElement;
   signature: string;
 }
 
@@ -28,9 +31,12 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
   let entry = cache.get(node.id);
   if (!entry || entry.signature !== signature) {
     entry?.body.remove();
+    entry?.textGroup.remove();
     const body = svgEl("g", { class: "shape-body" });
+    const textGroup = svgEl("g", { class: "bound-text" });
     g.insertBefore(body, g.firstChild);
-    entry = { body, signature };
+    g.appendChild(textGroup);
+    entry = { body, textGroup, signature };
     cache.set(node.id, entry);
   }
 
@@ -121,6 +127,27 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
       );
     }
     entry.body.append(hitArea, inner);
+  }
+
+  renderBoundText(entry.textGroup, node);
+}
+
+function renderBoundText(textGroup: SVGGElement, node: ShapeNode): void {
+  textGroup.replaceChildren();
+  if (!node.boundText) return;
+  const layout = getBoundTextLayout(node);
+
+  if (node.boundText.title && layout.title) {
+    const wrap = svgEl("g", { transform: `translate(${layout.title.x} ${layout.title.y})`, "data-bound": "title" });
+    wrap.appendChild(buildTextElement(node.boundText.title.content, node.boundText.title.font, node.boundText.title.fill));
+    setAttrs(wrap, { "pointer-events": "all" });
+    textGroup.appendChild(wrap);
+  }
+  if (node.boundText.subtitle && layout.subtitle) {
+    const wrap = svgEl("g", { transform: `translate(${layout.subtitle.x} ${layout.subtitle.y})`, "data-bound": "subtitle" });
+    wrap.appendChild(buildTextElement(node.boundText.subtitle.content, node.boundText.subtitle.font, node.boundText.subtitle.fill));
+    setAttrs(wrap, { "pointer-events": "all" });
+    textGroup.appendChild(wrap);
   }
 }
 

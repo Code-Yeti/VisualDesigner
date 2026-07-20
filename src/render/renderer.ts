@@ -1,9 +1,10 @@
 import type { Store } from "@/core/store";
-import type { Project, SceneNode, ShapeNode } from "@/core/model";
+import type { Project, SceneNode, ShapeNode, TextNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { computeViewBox } from "@/core/viewState";
 import { svgEl, setAttrs } from "./svgUtil";
 import { renderShapeNode, disposeShapeCache } from "./nodes/renderShape";
+import { renderTextNode } from "./nodes/renderText";
 
 export interface RendererHandles {
   container: HTMLDivElement;
@@ -99,6 +100,8 @@ export function mountRenderer(
 
       if (SHAPE_TYPES.has(node.type)) {
         renderShapeNode(g, node as ShapeNode);
+      } else if (node.type === "text") {
+        renderTextNode(g, node as TextNode);
       }
     }
 

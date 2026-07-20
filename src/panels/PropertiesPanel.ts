@@ -1,9 +1,12 @@
 import type { Store } from "@/core/store";
-import type { Project, ShapeNode } from "@/core/model";
+import type { BoundTextItem, Project, ShapeNode, TextNode } from "@/core/model";
+import { defaultFont } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { removeNode, updateNode } from "@/core/mutations";
+import { fontFieldsHtml, bindFontFields } from "./fontFields";
 
 const PLACEHOLDER = `<h3>Properties</h3><div class="panel-placeholder">Select an object to edit its properties.</div>`;
+const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
 
 export function mountPropertiesPanel(
   parent: HTMLElement,
@@ -20,11 +23,22 @@ export function mountPropertiesPanel(
     const id = view.selectedIds[0];
     const node = id ? project.nodes[id] : undefined;
 
-    if (!node || (node.type !== "rect" && node.type !== "ellipse")) {
+    if (!node) {
       panel.innerHTML = PLACEHOLDER;
       return;
     }
-    const shape = node as ShapeNode;
+    if (node.type === "text") {
+      renderTextPanel(node as TextNode);
+      return;
+    }
+    if (SHAPE_TYPES.has(node.type)) {
+      renderShapePanel(node as ShapeNode);
+      return;
+    }
+    panel.innerHTML = PLACEHOLDER;
+  }
+
+  function renderShapePanel(shape: ShapeNode) {
     const fillColor = shape.style.fill.kind === "solid" ? shape.style.fill.color : "#2563eb";
 
     panel.innerHTML = `
@@ -34,6 +48,9 @@ export function mountPropertiesPanel(
       <label class="field">Stroke width<input type="number" id="prop-stroke-width" min="0" max="40" value="${shape.style.strokeWidth}"></label>
       <label class="field">Opacity<input type="range" id="prop-opacity" min="0" max="1" step="0.05" value="${shape.style.opacity}"></label>
       <button id="prop-delete" class="danger-btn">Delete shape</button>
+      <h3 class="section-heading">Text</h3>
+      ${boundTextSectionHtml("title", "Title", shape.boundText?.title)}
+      ${boundTextSectionHtml("subtitle", "Subtitle", shape.boundText?.subtitle)}
     `;
 
     panel.querySelector<HTMLInputElement>("#prop-fill")!.addEventListener("input", (e) => {
@@ -56,6 +73,109 @@ export function mountPropertiesPanel(
       projectStore.update((p) => removeNode(p, shape.id));
       viewStore.patch({ ...viewStore.get(), selectedIds: [] });
     });
+
+    bindBoundTextSection(shape, "title");
+    bindBoundTextSection(shape, "subtitle");
+  }
+
+  function boundTextSectionHtml(key: "title" | "subtitle", label: string, item: BoundTextItem | undefined): string {
+    if (!item) {
+      return `<button id="add-${key}-btn" class="secondary-btn">Add ${label}</button>`;
+    }
+    return `
+      <div class="subsection">
+        <label class="field">${label}<input type="text" id="${key}-content" value="${escapeAttr(item.content)}"></label>
+        ${fontFieldsHtml(key, item.font, item.fill)}
+        <button id="remove-${key}-btn" class="danger-btn">Remove ${label}</button>
+      </div>
+    `;
+  }
+
+  function bindBoundTextSection(shape: ShapeNode, key: "title" | "subtitle") {
+    const item = shape.boundText?.[key];
+    const addBtn = panel.querySelector<HTMLButtonElement>(`#add-${key}-btn`);
+    if (addBtn) {
+      addBtn.addEventListener("click", () => {
+        const newItem: BoundTextItem = { content: key === "title" ? "Title" : "Subtitle", font: defaultFont(), fill: "#1e293b" };
+        if (key === "title") newItem.font.weight = "bold";
+        if (key === "subtitle") newItem.font.size = 12;
+        projectStore.update((p) => {
+          const latest = p.nodes[shape.id] as ShapeNode;
+          return updateNode(p, shape.id, { boundText: { ...latest.boundText, [key]: newItem } });
+        });
+      });
+      return;
+    }
+    if (!item) return;
+
+    panel.querySelector<HTMLInputElement>(`#${key}-content`)!.addEventListener("input", (e) => {
+      const content = (e.target as HTMLInputElement).value;
+      projectStore.update((p) => {
+        const latest = p.nodes[shape.id] as ShapeNode;
+        return updateNode(p, shape.id, { boundText: { ...latest.boundText, [key]: { ...latest.boundText![key]!, content } } });
+      });
+    });
+    panel.querySelector<HTMLButtonElement>(`#remove-${key}-btn`)!.addEventListener("click", () => {
+      projectStore.update((p) => {
+        const latest = p.nodes[shape.id] as ShapeNode;
+        const boundText = { ...latest.boundText };
+        delete boundText[key];
+        return updateNode(p, shape.id, { boundText });
+      });
+    });
+    bindFontFields(
+      panel,
+      key,
+      (patch) => {
+        projectStore.update((p) => {
+          const latest = p.nodes[shape.id] as ShapeNode;
+          const current = latest.boundText![key]!;
+          return updateNode(p, shape.id, { boundText: { ...latest.boundText, [key]: { ...current, font: { ...current.font, ...patch } } } });
+        });
+      },
+      (color) => {
+        projectStore.update((p) => {
+          const latest = p.nodes[shape.id] as ShapeNode;
+          const current = latest.boundText![key]!;
+          return updateNode(p, shape.id, { boundText: { ...latest.boundText, [key]: { ...current, fill: color } } });
+        });
+      }
+    );
+  }
+
+  function renderTextPanel(text: TextNode) {
+    panel.innerHTML = `
+      <h3>Properties</h3>
+      <label class="field">Content<input type="text" id="text-content" value="${escapeAttr(text.content)}"></label>
+      ${fontFieldsHtml("text", text.font, text.fill)}
+      <button id="prop-delete" class="danger-btn">Delete text</button>
+    `;
+
+    panel.querySelector<HTMLInputElement>("#text-content")!.addEventListener("input", (e) => {
+      projectStore.update((p) => updateNode(p, text.id, { content: (e.target as HTMLInputElement).value }));
+    });
+    panel.querySelector<HTMLButtonElement>("#prop-delete")!.addEventListener("click", () => {
+      projectStore.update((p) => removeNode(p, text.id));
+      viewStore.patch({ ...viewStore.get(), selectedIds: [] });
+    });
+
+    bindFontFields(
+      panel,
+      "text",
+      (patch) => {
+        projectStore.update((p) => {
+          const latest = p.nodes[text.id] as TextNode;
+          return updateNode(p, text.id, { font: { ...latest.font, ...patch } });
+        });
+      },
+      (color) => {
+        projectStore.update((p) => updateNode(p, text.id, { fill: color }));
+      }
+    );
+  }
+
+  function escapeAttr(value: string): string {
+    return value.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
   }
 
   projectStore.subscribe(render);

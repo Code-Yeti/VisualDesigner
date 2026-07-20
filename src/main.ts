@@ -8,6 +8,9 @@ import { attachSelectMoveTool } from "@/tools/selectMoveTool";
 import { attachResizeTool } from "@/tools/resizeTool";
 import { attachDrawShapeTool } from "@/tools/drawShapeTool";
 import { attachDrawPolygonTool } from "@/tools/drawPolygonTool";
+import { attachTextTool } from "@/tools/textTool";
+import { attachTextEditTool } from "@/tools/textEditTool";
+import { createTextEditOverlay } from "@/tools/textEditOverlay";
 import { mountToolbar } from "@/panels/Toolbar";
 import { mountLayersPanel } from "@/panels/LayersPanel";
 import { mountPropertiesPanel } from "@/panels/PropertiesPanel";
@@ -42,3 +45,7 @@ attachResizeTool(handles.container, handles.selectionLayer, projectStore, viewSt
 attachDrawShapeTool(handles.container, handles.draftLayer, projectStore, viewStore);
 attachDrawPolygonTool(handles.container, handles.draftLayer, projectStore, viewStore);
 attachSelectionOverlay(handles.selectionLayer, projectStore, viewStore);
+
+const textEditOverlay = createTextEditOverlay(handles.container);
+attachTextTool(handles.container, projectStore, viewStore, textEditOverlay);
+attachTextEditTool(handles.container, projectStore, viewStore, textEditOverlay);

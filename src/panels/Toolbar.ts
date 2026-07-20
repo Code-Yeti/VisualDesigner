@@ -15,6 +15,7 @@ export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, o
     <button data-tool="polygon" title="Polygon (click points, double-click to finish)">Polygon</button>
     <button data-tool="cloud" title="Cloud">Cloud</button>
     <button data-tool="pill" title="Pill / Badge">Pill</button>
+    <button data-tool="text" title="Text">Text</button>
     <span class="toolbar-sep"></span>
     <select id="icon-select" title="Insert icon (then drag on the canvas)">
       <option value="">Icon…</option>

@@ -13,3 +13,17 @@ export function clientToWorld(
     y: view.panY + (clientY - rect.top) / view.zoom,
   };
 }
+
+/** Converts a world/scene point into client-space (viewport/screen) coordinates. */
+export function worldToClient(
+  worldX: number,
+  worldY: number,
+  container: HTMLElement,
+  view: ViewState
+): { x: number; y: number } {
+  const rect = container.getBoundingClientRect();
+  return {
+    x: rect.left + (worldX - view.panX) * view.zoom,
+    y: rect.top + (worldY - view.panY) * view.zoom,
+  };
+}
