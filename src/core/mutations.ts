@@ -1,4 +1,6 @@
-import type { GradientDef, NodeId, Project, SceneNode } from "./model";
+import type { GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
+import { defaultTransform } from "./model";
+import { nextId } from "./ids";
 
 export function addNode(project: Project, node: SceneNode): Project {
   return {
@@ -43,4 +45,86 @@ export function updateNode(project: Project, id: NodeId, patch: Record<string, u
     ...project,
     nodes: { ...project.nodes, [id]: { ...existing, ...patch } as SceneNode },
   };
+}
+
+/** Moves `id` to `newIndex` within the top-level paint-order array. */
+export function reorderNode(project: Project, id: NodeId, newIndex: number): Project {
+  const order = project.order.filter((x) => x !== id);
+  const clamped = Math.max(0, Math.min(newIndex, order.length));
+  order.splice(clamped, 0, id);
+  return { ...project, order };
+}
+
+export function bringToFront(project: Project, id: NodeId): Project {
+  return reorderNode(project, id, project.order.length - 1);
+}
+
+export function sendToBack(project: Project, id: NodeId): Project {
+  return reorderNode(project, id, 0);
+}
+
+export function bringForward(project: Project, id: NodeId): Project {
+  const idx = project.order.indexOf(id);
+  if (idx === -1) return project;
+  return reorderNode(project, id, idx + 1);
+}
+
+export function sendBackward(project: Project, id: NodeId): Project {
+  const idx = project.order.indexOf(id);
+  if (idx <= 0) return project;
+  return reorderNode(project, id, idx - 1);
+}
+
+/** Walks up parentId chains so acting on a grouped child's id resolves to its topmost group ancestor. */
+export function resolveSelectionRoot(project: Project, id: NodeId): NodeId {
+  let current = project.nodes[id];
+  let rootId = id;
+  while (current?.parentId) {
+    rootId = current.parentId;
+    current = project.nodes[current.parentId];
+  }
+  return rootId;
+}
+
+/** Flattens a group (recursively) down to the leaf shape/text/connector ids it ultimately contains. */
+export function getGroupDescendantIds(project: Project, id: NodeId): NodeId[] {
+  const node = project.nodes[id];
+  if (!node || node.type !== "group") return [id];
+  const result: NodeId[] = [];
+  for (const childId of (node as GroupNode).childIds) {
+    result.push(...getGroupDescendantIds(project, childId));
+  }
+  return result;
+}
+
+/** Groups have no visual geometry of their own in v1 - they're purely a selection/movement container; children keep rendering individually at their existing paint-order position. */
+export function groupNodes(project: Project, ids: NodeId[]): Project {
+  const groupId = nextId("group");
+  const group: GroupNode = {
+    id: groupId,
+    type: "group",
+    name: "Group",
+    parentId: null,
+    transform: defaultTransform(),
+    childIds: ids,
+  };
+  let next: Project = {
+    ...project,
+    nodes: { ...project.nodes, [groupId]: group },
+    order: [...project.order, groupId],
+  };
+  for (const id of ids) {
+    next = updateNode(next, id, { parentId: groupId });
+  }
+  return next;
+}
+
+export function ungroupNode(project: Project, groupId: NodeId): Project {
+  const group = project.nodes[groupId];
+  if (!group || group.type !== "group") return project;
+  let next = project;
+  for (const childId of (group as GroupNode).childIds) {
+    next = updateNode(next, childId, { parentId: null });
+  }
+  return removeNode(next, groupId);
 }

@@ -1,4 +1,5 @@
-import type { Port, ShapeGeometry, ShapeNode } from "./model";
+import type { Port, Project, ShapeGeometry, ShapeNode } from "./model";
+import { getGroupDescendantIds } from "./mutations";
 
 export type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
 export const HANDLE_IDS: HandleId[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
@@ -32,6 +33,27 @@ export function getLocalSize(node: ShapeNode): { width: number; height: number }
 export function getWorldBBox(node: ShapeNode): BBox {
   const size = getLocalSize(node);
   return { x: node.transform.x, y: node.transform.y, ...size };
+}
+
+/** Union bbox of a group's descendant shapes; groups have no geometry of their own. */
+export function getGroupWorldBBox(project: Project, groupId: string): BBox | null {
+  const ids = getGroupDescendantIds(project, groupId);
+  let bbox: BBox | null = null;
+  for (const id of ids) {
+    const node = project.nodes[id];
+    if (!node || !("geometry" in node)) continue;
+    const b = getWorldBBox(node as ShapeNode);
+    if (!bbox) {
+      bbox = { ...b };
+    } else {
+      const minX = Math.min(bbox.x, b.x);
+      const minY = Math.min(bbox.y, b.y);
+      const maxX = Math.max(bbox.x + bbox.width, b.x + b.width);
+      const maxY = Math.max(bbox.y + bbox.height, b.y + b.height);
+      bbox = { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+    }
+  }
+  return bbox;
 }
 
 export function defaultPorts(): Port[] {

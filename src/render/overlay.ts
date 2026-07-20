@@ -1,10 +1,19 @@
 import type { Store } from "@/core/store";
+import type { BBox } from "@/core/geometry";
 import type { Project, ShapeNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-import { getWorldBBox, handleWorldPos, resolvePortWorldPos, HANDLE_IDS } from "@/core/geometry";
+import { getWorldBBox, getGroupWorldBBox, handleWorldPos, resolvePortWorldPos, HANDLE_IDS } from "@/core/geometry";
 import { svgEl, setAttrs } from "./svgUtil";
 
 const SHAPE_TYPES = new Set(["rect", "ellipse", "polygon", "cloud", "pill", "icon"]);
+
+function unionBBox(a: BBox, b: BBox): BBox {
+  const minX = Math.min(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxX = Math.max(a.x + a.width, b.x + b.width);
+  const maxY = Math.max(a.y + a.height, b.y + b.height);
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
 
 export function attachSelectionOverlay(
   selectionLayer: SVGGElement,
@@ -15,9 +24,38 @@ export function attachSelectionOverlay(
     selectionLayer.replaceChildren();
     const view = viewStore.get();
     const project = projectStore.get();
-    const id = view.selectedIds[0];
-    const node = id ? project.nodes[id] : undefined;
-    if (!node || !SHAPE_TYPES.has(node.type)) return;
+    const ids = view.selectedIds;
+    if (ids.length === 0) return;
+
+    // Multi-select: draw each member's outline plus one dashed union bbox; no resize handles (deferred to M11).
+    if (ids.length > 1) {
+      let union: BBox | null = null;
+      for (const id of ids) {
+        const node = project.nodes[id];
+        const bbox = node && node.type === "group" ? getGroupWorldBBox(project, id) : node && SHAPE_TYPES.has(node.type) ? getWorldBBox(node as ShapeNode) : null;
+        if (!bbox) continue;
+        selectionLayer.appendChild(svgEl("rect", { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height, class: "selection-outline" }));
+        union = union ? unionBBox(union, bbox) : bbox;
+      }
+      if (union) {
+        selectionLayer.appendChild(
+          svgEl("rect", { x: union.x - 6, y: union.y - 6, width: union.width + 12, height: union.height + 12, class: "selection-union-outline" })
+        );
+      }
+      return;
+    }
+
+    const id = ids[0];
+    const node = project.nodes[id];
+    if (!node) return;
+
+    if (node.type === "group") {
+      const bbox = getGroupWorldBBox(project, id);
+      if (!bbox) return;
+      selectionLayer.appendChild(svgEl("rect", { x: bbox.x, y: bbox.y, width: bbox.width, height: bbox.height, class: "selection-outline" }));
+      return; // groups aren't resizable in v1
+    }
+    if (!SHAPE_TYPES.has(node.type)) return;
 
     const bbox = getWorldBBox(node as ShapeNode);
     const outline = svgEl("rect", {

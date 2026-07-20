@@ -2,7 +2,7 @@ import type { Store } from "@/core/store";
 import type { BoundTextItem, ConnectorNode, DashKind, MarkerType, Project, RoutingKind, ShapeNode, TextNode } from "@/core/model";
 import { defaultFont } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
-import { removeNode, removeNodeCascade, updateNode, upsertGradientDef } from "@/core/mutations";
+import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertGradientDef } from "@/core/mutations";
 import { nextId } from "@/core/ids";
 import { fontFieldsHtml, bindFontFields } from "./fontFields";
 
@@ -29,6 +29,12 @@ export function mountPropertiesPanel(
   function render() {
     const view = viewStore.get();
     const project = projectStore.get();
+
+    if (view.selectedIds.length > 1) {
+      renderMultiSelectPanel(view.selectedIds);
+      return;
+    }
+
     const id = view.selectedIds[0];
     const node = id ? project.nodes[id] : undefined;
 
@@ -48,7 +54,37 @@ export function mountPropertiesPanel(
       renderConnectorPanel(node as ConnectorNode);
       return;
     }
+    if (node.type === "group") {
+      renderGroupPanel(node.id);
+      return;
+    }
     panel.innerHTML = PLACEHOLDER;
+  }
+
+  function renderMultiSelectPanel(ids: string[]) {
+    panel.innerHTML = `
+      <h3>Properties</h3>
+      <p class="note-text">${ids.length} objects selected.</p>
+      <button id="group-btn" class="secondary-btn">Group</button>
+    `;
+    panel.querySelector<HTMLButtonElement>("#group-btn")!.addEventListener("click", () => {
+      projectStore.update((p) => groupNodes(p, ids));
+      // Selection now points at the ids we just grouped away; select the new group instead.
+      const newGroupId = projectStore.get().order[projectStore.get().order.length - 1];
+      viewStore.patch({ ...viewStore.get(), selectedIds: [newGroupId] });
+    });
+  }
+
+  function renderGroupPanel(groupId: string) {
+    panel.innerHTML = `
+      <h3>Properties</h3>
+      <p class="note-text">Group of shapes. Drag to move them together.</p>
+      <button id="ungroup-btn" class="secondary-btn">Ungroup</button>
+    `;
+    panel.querySelector<HTMLButtonElement>("#ungroup-btn")!.addEventListener("click", () => {
+      projectStore.update((p) => ungroupNode(p, groupId));
+      viewStore.patch({ ...viewStore.get(), selectedIds: [] });
+    });
   }
 
   function renderConnectorPanel(connector: ConnectorNode) {

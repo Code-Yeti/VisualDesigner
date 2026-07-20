@@ -21,8 +21,10 @@ function fillValue(node: ShapeNode): string {
 
 export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
   const t = node.transform;
+  const hidden = node.visible === false;
   setAttrs(g, {
     transform: `translate(${t.x} ${t.y}) rotate(${t.rotation})`,
+    "pointer-events": hidden ? "none" : undefined,
   });
 
   const iconKey = node.type === "icon" ? node.iconKey : undefined;
@@ -49,23 +51,20 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
 
   const fill = fillValue(node);
   const common = { fill, stroke: style.stroke, "stroke-width": style.strokeWidth };
+  const pe = hidden ? "none" : "all";
 
   if (node.type === "rect" || node.type === "pill") {
     const geom = node.geometry as RectGeom;
     const rx = node.type === "pill" ? geom.height / 2 : geom.rx;
     const ry = node.type === "pill" ? geom.height / 2 : geom.ry;
-    entry.body.appendChild(
-      svgEl("rect", { x: 0, y: 0, width: geom.width, height: geom.height, rx, ry, "pointer-events": "all", ...common })
-    );
+    entry.body.appendChild(svgEl("rect", { x: 0, y: 0, width: geom.width, height: geom.height, rx, ry, "pointer-events": pe, ...common }));
   } else if (node.type === "ellipse") {
     const geom = node.geometry as EllipseGeom;
-    entry.body.appendChild(
-      svgEl("ellipse", { cx: geom.rx, cy: geom.ry, rx: geom.rx, ry: geom.ry, "pointer-events": "all", ...common })
-    );
+    entry.body.appendChild(svgEl("ellipse", { cx: geom.rx, cy: geom.ry, rx: geom.rx, ry: geom.ry, "pointer-events": pe, ...common }));
   } else if (node.type === "polygon") {
     const geom = node.geometry as PolygonGeom;
     const points = geom.points.map((p) => `${p.x},${p.y}`).join(" ");
-    entry.body.appendChild(svgEl("polygon", { points, "pointer-events": "all", ...common }));
+    entry.body.appendChild(svgEl("polygon", { points, "pointer-events": pe, ...common }));
   } else if (node.type === "cloud") {
     const geom = node.geometry as CloudGeom;
     const sx = geom.width / CLOUD_BASE.width;
@@ -77,7 +76,7 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
       height: geom.height,
       fill: "transparent",
       stroke: "none",
-      "pointer-events": "all",
+      "pointer-events": pe,
     });
     const inner = svgEl("g", { transform: `scale(${sx} ${sy})` });
     inner.appendChild(
@@ -106,7 +105,7 @@ export function renderShapeNode(g: SVGGElement, node: ShapeNode): void {
       height: geom.height,
       fill: "transparent",
       stroke: "none",
-      "pointer-events": "all",
+      "pointer-events": pe,
     });
     const inner = svgEl("g", { transform: `translate(${tx} ${ty}) scale(${scale})`, class: "icon-glyph" });
     for (const d of preset.paths ?? []) {

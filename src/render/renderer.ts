@@ -93,6 +93,7 @@ export function mountRenderer(
     for (const id of project.order) {
       const node = project.nodes[id];
       if (!node) continue;
+      if (node.type === "group") continue; // groups have no visual representation of their own
       seen.add(id);
 
       let g = elementCache.get(id);

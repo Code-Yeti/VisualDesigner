@@ -179,7 +179,10 @@ body {
 }
 
 .layer-row {
-  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
@@ -195,6 +198,51 @@ body {
   font-weight: 600;
 }
 
+.layer-row.dragging {
+  opacity: 0.5;
+}
+
+.layer-row.drop-target {
+  outline: 2px solid var(--accent);
+}
+
+.layer-drag-handle {
+  cursor: grab;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: -2px;
+  touch-action: none;
+}
+
+.layer-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer-actions {
+  display: flex;
+  gap: 1px;
+  flex: none;
+}
+
+.layer-icon-btn {
+  border: none;
+  background: none;
+  font-size: 10px;
+  padding: 2px 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--muted);
+  line-height: 1;
+}
+
+.layer-icon-btn:hover {
+  background: #e2e8f0;
+  color: var(--ink);
+}
+
 .draft-shape {
   fill: rgba(37, 99, 235, 0.12);
   stroke: var(--accent);
@@ -207,6 +255,14 @@ body {
   stroke: var(--accent);
   stroke-width: 1.5;
   stroke-dasharray: 4 3;
+}
+
+.selection-union-outline {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 2 4;
+  opacity: 0.7;
 }
 
 .selection-handle {
