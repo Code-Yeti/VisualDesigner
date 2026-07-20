@@ -15,6 +15,27 @@ function unionBBox(a: BBox, b: BBox): BBox {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
+/** Pure UI chrome, drawn only in the overlay SVG - export code (M9) never touches this layer, so the grid can never leak into an exported file. */
+export function attachGridOverlay(gridLayer: SVGGElement, projectStore: Store<Project>): void {
+  function render() {
+    gridLayer.replaceChildren();
+    const { canvas } = projectStore.get();
+    if (!canvas.gridVisible) return;
+    const step = canvas.gridSize;
+    if (step <= 0) return;
+
+    for (let x = 0; x <= canvas.width; x += step) {
+      gridLayer.appendChild(svgEl("line", { x1: x, y1: 0, x2: x, y2: canvas.height, class: "grid-line" }));
+    }
+    for (let y = 0; y <= canvas.height; y += step) {
+      gridLayer.appendChild(svgEl("line", { x1: 0, y1: y, x2: canvas.width, y2: y, class: "grid-line" }));
+    }
+  }
+
+  projectStore.subscribe(render);
+  render();
+}
+
 export function attachSelectionOverlay(
   selectionLayer: SVGGElement,
   projectStore: Store<Project>,

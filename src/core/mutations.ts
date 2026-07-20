@@ -1,4 +1,4 @@
-import type { GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
+import type { CanvasConfig, GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
 import { defaultTransform } from "./model";
 import { nextId } from "./ids";
 
@@ -14,6 +14,10 @@ export function removeNode(project: Project, id: NodeId): Project {
   const nodes = { ...project.nodes };
   delete nodes[id];
   return { ...project, nodes, order: project.order.filter((x) => x !== id) };
+}
+
+export function updateCanvasConfig(project: Project, patch: Partial<CanvasConfig>): Project {
+  return { ...project, canvas: { ...project.canvas, ...patch } };
 }
 
 export function upsertGradientDef(project: Project, def: GradientDef): Project {

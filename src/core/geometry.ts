@@ -56,6 +56,10 @@ export function getGroupWorldBBox(project: Project, groupId: string): BBox | nul
   return bbox;
 }
 
+export function snapValue(v: number, gridSize: number): number {
+  return Math.round(v / gridSize) * gridSize;
+}
+
 export function defaultPorts(): Port[] {
   return [
     { id: "n", x: 0.5, y: 0, side: "n" },

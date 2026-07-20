@@ -3,6 +3,7 @@ import type { NodeId, Project } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { getGroupDescendantIds, resolveSelectionRoot, updateNode } from "@/core/mutations";
+import { snapValue } from "@/core/geometry";
 
 /**
  * Handles both selecting a node (click, shift-click to add/remove) and
@@ -68,8 +69,21 @@ export function attachSelectMoveTool(container: HTMLElement, projectStore: Store
   container.addEventListener("pointermove", (e) => {
     if (!dragging || dragIds.length === 0) return;
     const world = clientToWorld(e.clientX, e.clientY, container, viewStore.get());
-    const dx = world.x - startWorld.x;
-    const dy = world.y - startWorld.y;
+    let dx = world.x - startWorld.x;
+    let dy = world.y - startWorld.y;
+
+    const { canvas } = projectStore.get();
+    if (canvas.snapEnabled) {
+      // Snap the primary dragged item's resulting position, then apply that
+      // same (now-snapped) delta to every other dragged item, so a grouped
+      // drag snaps as one unit instead of each member snapping independently.
+      const primary = startPositions.get(dragIds[0]);
+      if (primary) {
+        dx = snapValue(primary.x + dx, canvas.gridSize) - primary.x;
+        dy = snapValue(primary.y + dy, canvas.gridSize) - primary.y;
+      }
+    }
+
     projectStore.update((p) => {
       let next = p;
       for (const id of dragIds) {

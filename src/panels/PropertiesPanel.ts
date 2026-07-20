@@ -5,6 +5,7 @@ import type { ViewState } from "@/core/viewState";
 import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertGradientDef } from "@/core/mutations";
 import { nextId } from "@/core/ids";
 import { fontFieldsHtml, bindFontFields } from "./fontFields";
+import { renderCanvasSettings } from "./CanvasSettingsPanel";
 
 const MARKER_OPTIONS: { value: MarkerType; label: string }[] = [
   { value: "none", label: "None" },
@@ -27,6 +28,18 @@ export function mountPropertiesPanel(
   parent.appendChild(panel);
 
   function render() {
+    // While the user is mid-edit in a text/number/range/color field inside
+    // this panel, a store update from that very field's own 'input' handler
+    // would otherwise trigger a full innerHTML rebuild here and destroy
+    // focus after every keystroke. A genuine selection change always blurs
+    // the field first (the click lands on the canvas, not in this panel),
+    // so if focus is still inside `panel` this is just our own edit echoing
+    // back - skip the rebuild, the DOM and store already agree.
+    const active = document.activeElement;
+    if (active && panel.contains(active) && (active.tagName === "INPUT" || active.tagName === "TEXTAREA") && (active as HTMLInputElement).type !== "checkbox") {
+      return;
+    }
+
     const view = viewStore.get();
     const project = projectStore.get();
 
@@ -39,7 +52,7 @@ export function mountPropertiesPanel(
     const node = id ? project.nodes[id] : undefined;
 
     if (!node) {
-      panel.innerHTML = PLACEHOLDER;
+      renderCanvasSettings(panel, projectStore);
       return;
     }
     if (node.type === "text") {

@@ -2,7 +2,7 @@ import { Store } from "@/core/store";
 import { createEmptyProject, type Project } from "@/core/model";
 import { createInitialViewState, type ViewState } from "@/core/viewState";
 import { mountRenderer } from "@/render/renderer";
-import { attachSelectionOverlay, attachPortsOverlay } from "@/render/overlay";
+import { attachSelectionOverlay, attachPortsOverlay, attachGridOverlay } from "@/render/overlay";
 import { attachPanZoom } from "@/tools/panZoomTool";
 import { attachSelectMoveTool } from "@/tools/selectMoveTool";
 import { attachResizeTool } from "@/tools/resizeTool";
@@ -48,6 +48,7 @@ attachDrawShapeTool(handles.container, handles.draftLayer, projectStore, viewSto
 attachDrawPolygonTool(handles.container, handles.draftLayer, projectStore, viewStore);
 attachSelectionOverlay(handles.selectionLayer, projectStore, viewStore);
 attachPortsOverlay(handles.portsLayer, projectStore, viewStore);
+attachGridOverlay(handles.gridLayer, projectStore);
 attachHoverTool(handles.container, projectStore, viewStore);
 attachConnectTool(handles.container, handles.draftLayer, projectStore, viewStore);
 

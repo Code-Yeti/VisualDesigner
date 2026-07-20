@@ -257,6 +257,12 @@ body {
   stroke-dasharray: 4 3;
 }
 
+.grid-line {
+  stroke: #cbd5e1;
+  stroke-width: 1;
+  opacity: 0.6;
+}
+
 .selection-union-outline {
   fill: none;
   stroke: var(--accent);
