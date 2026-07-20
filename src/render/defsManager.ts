@@ -85,13 +85,30 @@ function syncConnectorMarkers(stageDefs: SVGDefsElement, connector: ConnectorNod
   }
 }
 
+// Where each marker shape's "aim point" sits in its own 10x10 local
+// coordinate system: the tip for directional shapes (arrow/openArrow), the
+// centroid for symmetric ones (circle/diamond). refX/refY pin this exact
+// point to the path's start/end vertex - `orient` (auto vs
+// auto-start-reverse) only pivots the rest of the shape around that fixed
+// point to get the right pointing direction, it does NOT change which
+// local point is anchored. Using the same start/end refX for every shape
+// regardless of where its own tip/center actually is (the previous bug)
+// meant nothing lined up exactly on the port.
+const MARKER_ANCHOR: Record<Exclude<MarkerType, "none">, { x: number; y: number }> = {
+  arrow: { x: 10, y: 5 },
+  openArrow: { x: 9, y: 5 },
+  circle: { x: 5, y: 5 },
+  diamond: { x: 5, y: 5 },
+};
+
 function buildMarkerElement(id: string, type: MarkerType, color: string, size: number, end: "start" | "end"): SVGMarkerElement {
   const orient = end === "start" ? "auto-start-reverse" : "auto";
+  const anchor = MARKER_ANCHOR[type as Exclude<MarkerType, "none">];
   const marker = svgEl("marker", {
     id,
     viewBox: "0 0 10 10",
-    refX: end === "start" ? 1 : 9,
-    refY: 5,
+    refX: anchor.x,
+    refY: anchor.y,
     markerWidth: size,
     markerHeight: size,
     // userSpaceOnUse (not the SVG default of "strokeWidth") so the

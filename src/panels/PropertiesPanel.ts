@@ -205,6 +205,8 @@ export function mountPropertiesPanel(
           <option value="dotted" ${connector.style.dash === "dotted" ? "selected" : ""}>Dotted</option>
         </select>
       </label>
+      ${connector.style.dash === "dashed" ? `<label class="field">Dash length<input type="number" id="conn-dash-length" min="1" max="100" value="${connector.style.dashLength}"></label>` : ""}
+      ${connector.style.dash !== "solid" ? `<label class="field">Rounded dashes<input type="checkbox" id="conn-dash-rounded" ${connector.style.dashRounded ? "checked" : ""}></label>` : ""}
       <label class="field">Animate flow<input type="checkbox" id="conn-animate" ${connector.style.animated ? "checked" : ""}></label>
       ${connector.style.animated ? `<label class="field">Speed (s)<input type="number" id="conn-anim-speed" min="0.1" step="0.1" value="${connector.style.animationSeconds}"></label>` : ""}
 
@@ -257,6 +259,12 @@ export function mountPropertiesPanel(
 
     panel.querySelector<HTMLSelectElement>("#conn-dash")!.addEventListener("change", (e) => {
       updateConnectorStyle(connector.id, { dash: (e.target as HTMLSelectElement).value as DashKind });
+    });
+    panel.querySelector<HTMLInputElement>("#conn-dash-length")?.addEventListener("input", (e) => {
+      updateConnectorStyle(connector.id, { dashLength: Number((e.target as HTMLInputElement).value) });
+    });
+    panel.querySelector<HTMLInputElement>("#conn-dash-rounded")?.addEventListener("change", (e) => {
+      updateConnectorStyle(connector.id, { dashRounded: (e.target as HTMLInputElement).checked });
     });
     panel.querySelector<HTMLInputElement>("#conn-animate")!.addEventListener("change", (e) => {
       updateConnectorStyle(connector.id, { animated: (e.target as HTMLInputElement).checked });
@@ -316,6 +324,8 @@ export function mountPropertiesPanel(
           <option value="dotted" ${shape.style.strokeDash === "dotted" ? "selected" : ""}>Dotted</option>
         </select>
       </label>
+      ${shape.style.strokeDash === "dashed" ? `<label class="field">Dash length<input type="number" id="prop-stroke-dash-length" min="1" max="100" value="${shape.style.strokeDashLength}"></label>` : ""}
+      ${shape.style.strokeDash !== "solid" ? `<label class="field">Rounded dashes<input type="checkbox" id="prop-stroke-dash-rounded" ${shape.style.strokeDashRounded ? "checked" : ""}></label>` : ""}
       <label class="field">Animate stroke<input type="checkbox" id="prop-stroke-animate" ${shape.style.strokeAnimated ? "checked" : ""}></label>
       ${shape.style.strokeAnimated ? `<label class="field">Speed (s)<input type="number" id="prop-stroke-anim-speed" min="0.1" step="0.1" value="${shape.style.strokeAnimationSeconds}"></label>` : ""}
       <label class="field">Opacity<input type="range" id="prop-opacity" min="0" max="1" step="0.05" value="${shape.style.opacity}"></label>
@@ -336,6 +346,12 @@ export function mountPropertiesPanel(
     });
     panel.querySelector<HTMLSelectElement>("#prop-stroke-dash")!.addEventListener("change", (e) => {
       updateShapeStyle(shape.id, { strokeDash: (e.target as HTMLSelectElement).value as DashKind });
+    });
+    panel.querySelector<HTMLInputElement>("#prop-stroke-dash-length")?.addEventListener("input", (e) => {
+      updateShapeStyle(shape.id, { strokeDashLength: Number((e.target as HTMLInputElement).value) });
+    });
+    panel.querySelector<HTMLInputElement>("#prop-stroke-dash-rounded")?.addEventListener("change", (e) => {
+      updateShapeStyle(shape.id, { strokeDashRounded: (e.target as HTMLInputElement).checked });
     });
     panel.querySelector<HTMLInputElement>("#prop-stroke-animate")!.addEventListener("change", (e) => {
       updateShapeStyle(shape.id, { strokeAnimated: (e.target as HTMLInputElement).checked });

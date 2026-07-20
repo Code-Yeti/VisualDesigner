@@ -119,7 +119,15 @@ export function attachConnectTool(
       routing: "straight",
       cornerRadius: 12,
       stubLength: 24,
-      style: { stroke: { kind: "solid", color: "#475569" }, strokeWidth: 2.5, dash: "solid", animated: false, animationSeconds: 1 },
+      style: {
+        stroke: { kind: "solid", color: "#475569" },
+        strokeWidth: 2.5,
+        dash: "solid",
+        dashLength: 12,
+        dashRounded: false,
+        animated: false,
+        animationSeconds: 1,
+      },
       markers: { start: "none", end: "arrow", size: DEFAULT_MARKER_SIZE },
     };
     projectStore.update((p) => addNode(p, connector));

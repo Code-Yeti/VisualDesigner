@@ -120,6 +120,10 @@ export interface ShapeStyle {
   stroke: string;
   strokeWidth: number;
   strokeDash: DashKind;
+  /** Length in px of each dash segment (dashed only); the gap is derived from it. */
+  strokeDashLength: number;
+  /** Rounds dash-segment ends (stroke-linecap: round) - short dashes with this on read as pills/dots. */
+  strokeDashRounded: boolean;
   strokeAnimated: boolean;
   strokeAnimationSeconds: number;
   opacity: number;
@@ -127,7 +131,17 @@ export interface ShapeStyle {
 }
 
 export function defaultShapeStyle(fill: string, stroke: string, strokeWidth: number): ShapeStyle {
-  return { fill: { kind: "solid", color: fill }, stroke, strokeWidth, strokeDash: "solid", strokeAnimated: false, strokeAnimationSeconds: 1, opacity: 1 };
+  return {
+    fill: { kind: "solid", color: fill },
+    stroke,
+    strokeWidth,
+    strokeDash: "solid",
+    strokeDashLength: 12,
+    strokeDashRounded: false,
+    strokeAnimated: false,
+    strokeAnimationSeconds: 1,
+    opacity: 1,
+  };
 }
 
 export interface BoundTextItem {
@@ -180,6 +194,10 @@ export interface ConnectorStyle {
   stroke: FillRef;
   strokeWidth: number;
   dash: DashKind;
+  /** Length in px of each dash segment (dashed only); the gap is derived from it. */
+  dashLength: number;
+  /** Rounds dash-segment ends (stroke-linecap: round) - short dashes with this on read as pills/dots. */
+  dashRounded: boolean;
   animated: boolean;
   animationSeconds: number;
 }
