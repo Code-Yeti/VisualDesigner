@@ -23,12 +23,20 @@ These apply regardless of how small the change is:
    `git push` unprompted after finishing a change, even though prior sessions
    established a GitHub remote — always ask first and wait for a yes.
 3. **Auto-increment the app version** (`package.json`'s `"version"`, shown in
-   the toolbar next to the app name) every time a change is made:
-   - Bump the **patch** version by default (`1.0.0` → `1.0.1`).
-   - Bump the **major** version instead if the change is significant (a new
-     feature, a breaking change to the project file format, a major visual/UX
-     change) — use judgment; there's no minor-version tier in this project's
-     scheme, it's patch-for-routine vs. major-for-significant.
+   the toolbar next to the app name) every time a change is made — this is a
+   three-tier semver-ish scheme, use judgment on which tier fits:
+   - **Patch** (`1.1.0` → `1.1.1`) is the default: bug fixes, doc/README-only
+     changes, small tweaks to an existing feature (e.g. a default value, a
+     label, a minor styling fix).
+   - **Minor** (`1.1.0` → `1.2.0`) for a new but self-contained feature or a
+     small batch of related additions that don't change how existing features
+     work (e.g. a new export format, a new panel section, the Docker
+     packaging + update-flow docs).
+   - **Major** (`1.1.0` → `2.0.0`) for something significant: a breaking
+     change to the project file format, a major visual/UX overhaul, or a
+     large batch of substantial features landing together (e.g. the original
+     M0–M11 build, or the image-upload + drop-shadow + reset + Docker batch
+     that shipped as 1.0.0).
 
 ## Commands
 
