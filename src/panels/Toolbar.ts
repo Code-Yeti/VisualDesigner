@@ -2,7 +2,13 @@ import type { Store } from "@/core/store";
 import type { ToolId, ViewState } from "@/core/viewState";
 import { ICON_PRESETS } from "@/core/presets";
 
-export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, onResetView: () => void): HTMLElement {
+export interface ToolbarActions {
+  onResetView: () => void;
+  onSave: () => void;
+  onLoad: () => void;
+}
+
+export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, actions: ToolbarActions): HTMLElement {
   const toolbar = document.createElement("div");
   toolbar.className = "app-toolbar";
   toolbar.innerHTML = `
@@ -24,6 +30,9 @@ export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, o
     </select>
     <span class="toolbar-sep"></span>
     <button id="zoom-reset" title="Reset view">100%</button>
+    <span class="toolbar-sep"></span>
+    <button id="save-btn" title="Save project to a .json file">Save</button>
+    <button id="load-btn" title="Load project from a .json file">Load</button>
   `;
   parent.appendChild(toolbar);
 
@@ -49,7 +58,9 @@ export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, o
     viewStore.patch({ ...viewStore.get(), activeTool: "icon", activeIconKey: key });
   });
 
-  toolbar.querySelector("#zoom-reset")!.addEventListener("click", onResetView);
+  toolbar.querySelector("#zoom-reset")!.addEventListener("click", actions.onResetView);
+  toolbar.querySelector("#save-btn")!.addEventListener("click", actions.onSave);
+  toolbar.querySelector("#load-btn")!.addEventListener("click", actions.onLoad);
 
   viewStore.subscribe(refresh);
   refresh();
