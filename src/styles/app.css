@@ -544,6 +544,38 @@ body {
   background: #eef2f7;
 }
 
+.align-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.align-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.align-grid button {
+  padding: 7px 4px;
+  border: 1px solid var(--panel-border);
+  background: #fff;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.align-grid button:hover:not(:disabled) {
+  background: #eef2f7;
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.align-grid button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
 .note-text {
   font-size: 12px;
   color: var(--muted);

@@ -2,9 +2,13 @@ import type { HistoryStore } from "@/core/historyStore";
 import type { Store } from "@/core/store";
 import type { ViewState } from "@/core/viewState";
 import { deleteNodes, duplicateNodes, getGroupDescendantIds, groupNodes, updateNode } from "@/core/mutations";
+import { copyNodes, pasteClipboard, type Clipboard } from "@/core/clipboard";
 import { downloadProjectFile } from "@/io/fileDialogs";
 
 export function attachKeyboardShortcuts(projectStore: HistoryStore, viewStore: Store<ViewState>): void {
+  let clipboard: Clipboard | null = null;
+  let pasteCount = 0;
+
   window.addEventListener("keydown", (e) => {
     const target = e.target as HTMLElement;
     const isEditableField = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable;
@@ -32,6 +36,22 @@ export function attachKeyboardShortcuts(projectStore: HistoryStore, viewStore: S
     if (mod && key === "y") {
       e.preventDefault();
       projectStore.redo();
+      return;
+    }
+    if (mod && key === "c") {
+      e.preventDefault();
+      if (selected.length === 0) return;
+      clipboard = copyNodes(projectStore.get(), selected);
+      pasteCount = 0;
+      return;
+    }
+    if (mod && key === "v") {
+      e.preventDefault();
+      if (!clipboard) return;
+      pasteCount += 1;
+      const { project, newIds } = pasteClipboard(projectStore.get(), clipboard, 20 * pasteCount);
+      projectStore.patch(project);
+      viewStore.patch({ ...view, selectedIds: newIds });
       return;
     }
     if (mod && key === "d") {

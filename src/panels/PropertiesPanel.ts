@@ -3,6 +3,7 @@ import type { BoundTextItem, ConnectorNode, DashKind, MarkerType, Project, Routi
 import { defaultFont } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertGradientDef } from "@/core/mutations";
+import { alignNodes, distributeNodes, type AlignMode } from "@/core/align";
 import { nextId } from "@/core/ids";
 import { fontFieldsHtml, bindFontFields } from "./fontFields";
 import { renderCanvasSettings } from "./CanvasSettingsPanel";
@@ -78,8 +79,33 @@ export function mountPropertiesPanel(
     panel.innerHTML = `
       <h3>Properties</h3>
       <p class="note-text">${ids.length} objects selected.</p>
+      <h3 class="section-heading">Align</h3>
+      <div class="align-grid">
+        <button data-align="left" title="Align left edges">Left</button>
+        <button data-align="centerX" title="Align horizontal centers">Center</button>
+        <button data-align="right" title="Align right edges">Right</button>
+        <button data-align="top" title="Align top edges">Top</button>
+        <button data-align="centerY" title="Align vertical centers">Middle</button>
+        <button data-align="bottom" title="Align bottom edges">Bottom</button>
+      </div>
+      <div class="align-grid align-grid-2">
+        <button data-distribute="x" title="Distribute evenly, left to right (3+ objects)" ${ids.length < 3 ? "disabled" : ""}>Distribute H</button>
+        <button data-distribute="y" title="Distribute evenly, top to bottom (3+ objects)" ${ids.length < 3 ? "disabled" : ""}>Distribute V</button>
+      </div>
       <button id="group-btn" class="secondary-btn">Group</button>
     `;
+    panel.querySelectorAll<HTMLButtonElement>("[data-align]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const mode = btn.dataset.align as AlignMode;
+        projectStore.update((p) => alignNodes(p, ids, mode));
+      });
+    });
+    panel.querySelectorAll<HTMLButtonElement>("[data-distribute]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const axis = btn.dataset.distribute as "x" | "y";
+        projectStore.update((p) => distributeNodes(p, ids, axis));
+      });
+    });
     panel.querySelector<HTMLButtonElement>("#group-btn")!.addEventListener("click", () => {
       projectStore.update((p) => groupNodes(p, ids));
       // Selection now points at the ids we just grouped away; select the new group instead.
