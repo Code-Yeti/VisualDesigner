@@ -59,6 +59,15 @@ body {
   background: #f1f5f9;
 }
 
+.app-toolbar button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.app-toolbar button:disabled:hover {
+  background: #fff;
+}
+
 .app-toolbar button.active {
   background: var(--accent);
   color: #fff;
@@ -409,6 +418,20 @@ body {
 
 .restore-banner button:hover {
   background: rgba(255, 255, 255, 0.2);
+}
+
+.marquee-rect {
+  fill: rgba(37, 99, 235, 0.08);
+  stroke: var(--accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.align-guide {
+  stroke: #ec4899;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
 }
 
 .grid-line {

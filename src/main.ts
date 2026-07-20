@@ -1,5 +1,6 @@
 import { Store } from "@/core/store";
-import { createEmptyProject, type Project } from "@/core/model";
+import { HistoryStore } from "@/core/historyStore";
+import { createEmptyProject } from "@/core/model";
 import { createInitialViewState, type ViewState } from "@/core/viewState";
 import { mountRenderer } from "@/render/renderer";
 import { attachSelectionOverlay, attachPortsOverlay, attachGridOverlay } from "@/render/overlay";
@@ -13,6 +14,7 @@ import { attachTextEditTool } from "@/tools/textEditTool";
 import { createTextEditOverlay } from "@/tools/textEditOverlay";
 import { attachHoverTool } from "@/tools/hoverTool";
 import { attachConnectTool } from "@/tools/connectTool";
+import { attachKeyboardShortcuts } from "@/tools/keyboardShortcuts";
 import { mountToolbar } from "@/panels/Toolbar";
 import { mountLayersPanel } from "@/panels/LayersPanel";
 import { mountPropertiesPanel } from "@/panels/PropertiesPanel";
@@ -22,7 +24,7 @@ import { mountExportMenu } from "@/panels/ExportPanel";
 import { mountAnimatedExportButton } from "@/panels/AnimatedExportDialog";
 
 const project = createEmptyProject(1200, 700);
-const projectStore = new Store<Project>(project);
+const projectStore = new HistoryStore(project);
 const viewStore = new Store<ViewState>(createInitialViewState(project.canvas.width, project.canvas.height));
 
 const app = document.getElementById("app")!;
@@ -31,7 +33,7 @@ function resetViewToFitCanvas() {
   viewStore.patch(createInitialViewState(projectStore.get().canvas.width, projectStore.get().canvas.height));
 }
 
-const toolbar = mountToolbar(app, viewStore, {
+const toolbar = mountToolbar(app, viewStore, projectStore, {
   onResetView: resetViewToFitCanvas,
   onSave: () => downloadProjectFile(projectStore.get()),
   onLoad: () => {
@@ -60,7 +62,7 @@ mountPropertiesPanel(main, projectStore, viewStore);
 const handles = mountRenderer(canvasArea, projectStore, viewStore);
 
 attachPanZoom(handles.container, viewStore);
-attachSelectMoveTool(handles.container, projectStore, viewStore);
+attachSelectMoveTool(handles.container, handles.marqueeLayer, handles.draftLayer, projectStore, viewStore);
 attachResizeTool(handles.container, handles.selectionLayer, projectStore, viewStore);
 attachDrawShapeTool(handles.container, handles.draftLayer, projectStore, viewStore);
 attachDrawPolygonTool(handles.container, handles.draftLayer, projectStore, viewStore);
@@ -69,6 +71,7 @@ attachPortsOverlay(handles.portsLayer, projectStore, viewStore);
 attachGridOverlay(handles.gridLayer, projectStore);
 attachHoverTool(handles.container, projectStore, viewStore);
 attachConnectTool(handles.container, handles.draftLayer, projectStore, viewStore);
+attachKeyboardShortcuts(projectStore, viewStore);
 
 const textEditOverlay = createTextEditOverlay(handles.container);
 attachTextTool(handles.container, projectStore, viewStore, textEditOverlay);

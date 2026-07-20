@@ -132,3 +132,56 @@ export function ungroupNode(project: Project, groupId: NodeId): Project {
   }
   return removeNode(next, groupId);
 }
+
+/** Deletes each selected id (expanding groups to their members) and cascades to any connectors left dangling. */
+export function deleteNodes(project: Project, ids: NodeId[]): Project {
+  let next = project;
+  for (const id of ids) {
+    const node = next.nodes[id];
+    if (!node) continue;
+    if (node.type === "group") {
+      for (const childId of getGroupDescendantIds(next, id)) next = removeNodeCascade(next, childId);
+      next = removeNode(next, id);
+    } else {
+      next = removeNodeCascade(next, id);
+    }
+  }
+  return next;
+}
+
+/** Duplicates each selected id (shapes/text get a small offset; groups are reconstructed with fresh child ids) and returns the new top-level ids to select. */
+export function duplicateNodes(project: Project, ids: NodeId[]): { project: Project; newIds: NodeId[] } {
+  let next = project;
+  const newIds: NodeId[] = [];
+  const offset = 20;
+
+  for (const id of ids) {
+    const node = next.nodes[id];
+    if (!node) continue;
+
+    if (node.type === "group") {
+      const group = node as GroupNode;
+      const childMap = new Map<NodeId, NodeId>();
+      for (const childId of group.childIds) {
+        const child = next.nodes[childId];
+        if (!child) continue;
+        const newChildId = nextId(child.type);
+        const clone: SceneNode = { ...child, id: newChildId, transform: { ...child.transform, x: child.transform.x + offset, y: child.transform.y + offset } };
+        next = addNode(next, clone);
+        childMap.set(childId, newChildId);
+      }
+      const newGroupId = nextId("group");
+      const newGroup: GroupNode = { ...group, id: newGroupId, childIds: [...childMap.values()] };
+      next = { ...next, nodes: { ...next.nodes, [newGroupId]: newGroup }, order: [...next.order, newGroupId] };
+      for (const newChildId of childMap.values()) next = updateNode(next, newChildId, { parentId: newGroupId });
+      newIds.push(newGroupId);
+    } else {
+      const newId = nextId(node.type);
+      const clone: SceneNode = { ...node, id: newId, parentId: null, transform: { ...node.transform, x: node.transform.x + offset, y: node.transform.y + offset } };
+      next = addNode(next, clone);
+      newIds.push(newId);
+    }
+  }
+
+  return { project: next, newIds };
+}

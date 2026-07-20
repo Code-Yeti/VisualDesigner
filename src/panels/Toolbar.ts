@@ -1,4 +1,5 @@
 import type { Store } from "@/core/store";
+import type { HistoryStore } from "@/core/historyStore";
 import type { ToolId, ViewState } from "@/core/viewState";
 import { ICON_PRESETS } from "@/core/presets";
 
@@ -8,7 +9,12 @@ export interface ToolbarActions {
   onLoad: () => void;
 }
 
-export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, actions: ToolbarActions): HTMLElement {
+export function mountToolbar(
+  parent: HTMLElement,
+  viewStore: Store<ViewState>,
+  historyStore: HistoryStore,
+  actions: ToolbarActions
+): HTMLElement {
   const toolbar = document.createElement("div");
   toolbar.className = "app-toolbar";
   toolbar.innerHTML = `
@@ -29,6 +35,9 @@ export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, a
       ${ICON_PRESETS.map((p) => `<option value="${p.key}">${p.label}</option>`).join("")}
     </select>
     <span class="toolbar-sep"></span>
+    <button id="undo-btn" title="Undo (Ctrl+Z)">&#8630;</button>
+    <button id="redo-btn" title="Redo (Ctrl+Y)">&#8631;</button>
+    <span class="toolbar-sep"></span>
     <button id="zoom-reset" title="Reset view">100%</button>
     <span class="toolbar-sep"></span>
     <button id="save-btn" title="Save project to a .json file">Save</button>
@@ -44,6 +53,8 @@ export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, a
     const iconSelect = toolbar.querySelector<HTMLSelectElement>("#icon-select")!;
     iconSelect.classList.toggle("active", view.activeTool === "icon");
     if (view.activeTool !== "icon") iconSelect.value = "";
+    toolbar.querySelector<HTMLButtonElement>("#undo-btn")!.disabled = !historyStore.canUndo();
+    toolbar.querySelector<HTMLButtonElement>("#redo-btn")!.disabled = !historyStore.canRedo();
   }
 
   toolbar.querySelectorAll<HTMLButtonElement>("button[data-tool]").forEach((btn) => {
@@ -61,8 +72,11 @@ export function mountToolbar(parent: HTMLElement, viewStore: Store<ViewState>, a
   toolbar.querySelector("#zoom-reset")!.addEventListener("click", actions.onResetView);
   toolbar.querySelector("#save-btn")!.addEventListener("click", actions.onSave);
   toolbar.querySelector("#load-btn")!.addEventListener("click", actions.onLoad);
+  toolbar.querySelector("#undo-btn")!.addEventListener("click", () => historyStore.undo());
+  toolbar.querySelector("#redo-btn")!.addEventListener("click", () => historyStore.redo());
 
   viewStore.subscribe(refresh);
+  historyStore.subscribe(refresh);
   refresh();
   return toolbar;
 }

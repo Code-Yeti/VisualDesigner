@@ -1,5 +1,6 @@
+import type { HistoryStore } from "@/core/historyStore";
 import type { Store } from "@/core/store";
-import type { NodeId, Project, ShapeNode } from "@/core/model";
+import type { NodeId, ShapeNode } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { computeResizedBBox, getWorldBBox, resizeGeometry, snapValue, type BBox, type HandleId } from "@/core/geometry";
@@ -7,7 +8,7 @@ import { computeResizedBBox, getWorldBBox, resizeGeometry, snapValue, type BBox,
 export function attachResizeTool(
   container: HTMLElement,
   selectionLayer: SVGGElement,
-  projectStore: Store<Project>,
+  projectStore: HistoryStore,
   viewStore: Store<ViewState>
 ): void {
   let activeId: NodeId | null = null;
@@ -28,6 +29,7 @@ export function attachResizeTool(
     handle = h;
     startWorld = clientToWorld(e.clientX, e.clientY, container, viewStore.get());
     startBBox = getWorldBBox(node);
+    projectStore.beginGesture();
     container.setPointerCapture(e.pointerId);
     e.stopPropagation();
   });
@@ -73,6 +75,7 @@ export function attachResizeTool(
     if (!activeId) return;
     activeId = null;
     handle = null;
+    projectStore.endGesture();
     container.releasePointerCapture(e.pointerId);
   }
   container.addEventListener("pointerup", end);
