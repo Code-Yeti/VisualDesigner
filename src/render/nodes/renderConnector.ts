@@ -1,5 +1,5 @@
-import type { ConnectorNode, Project, ShapeNode } from "@/core/model";
-import { resolvePortWorldPos } from "@/core/geometry";
+import type { ConnectorNode, Project } from "@/core/model";
+import { resolveConnectorEndpoints } from "@/core/geometry";
 import { computePath } from "@/core/routing";
 import { computeDashArray, computeDashRepeatLength } from "@/core/dashPattern";
 import { ensureDashKeyframe } from "../dashKeyframes";
@@ -17,16 +17,11 @@ export function renderConnectorNode(g: SVGGElement, node: ConnectorNode, project
   setAttrs(g, { opacity: node.visible === false ? 0 : 1 });
   g.replaceChildren();
 
-  const sourceNode = project.nodes[node.source.nodeId] as ShapeNode | undefined;
-  const targetNode = project.nodes[node.target.nodeId] as ShapeNode | undefined;
-  const sourcePort = sourceNode?.ports.find((p) => p.id === node.source.portId);
-  const targetPort = targetNode?.ports.find((p) => p.id === node.target.portId);
-  if (!sourceNode || !targetNode || !sourcePort || !targetPort) return;
+  const endpoints = resolveConnectorEndpoints(project, node);
+  if (!endpoints) return;
+  const { sourcePos, sourceSide, targetPos, targetSide } = endpoints;
 
-  const sourcePos = resolvePortWorldPos(sourceNode, sourcePort);
-  const targetPos = resolvePortWorldPos(targetNode, targetPort);
-
-  const d = computePath(sourcePos, sourcePort.side, targetPos, targetPort.side, {
+  const d = computePath(sourcePos, sourceSide, targetPos, targetSide, {
     routing: node.routing,
     cornerRadius: node.cornerRadius,
     stubLength: node.stubLength,

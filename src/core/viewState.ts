@@ -11,7 +11,8 @@ export type ToolId =
   | "pill"
   | "icon"
   | "text"
-  | "connect";
+  | "connect"
+  | "line";
 
 export interface ViewState {
   /** World-space X of the viewBox's top-left corner. */

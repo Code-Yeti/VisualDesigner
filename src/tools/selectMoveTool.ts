@@ -1,7 +1,7 @@
 import type { HistoryStore } from "@/core/historyStore";
 import type { Store } from "@/core/store";
-import type { NodeId, ShapeNode } from "@/core/model";
-import { SHAPE_NODE_TYPES } from "@/core/model";
+import type { ConnectorNode, NodeId, Point, ShapeNode } from "@/core/model";
+import { isFreeLine, SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { clientToWorld } from "./coords";
 import { getGroupDescendantIds, resolveSelectionRoot, updateNode } from "@/core/mutations";
@@ -37,6 +37,14 @@ export function attachSelectMoveTool(
   let startWorld = { x: 0, y: 0 };
   let startPositions = new Map<NodeId, { x: number; y: number }>();
   let singleShapeId: NodeId | null = null;
+
+  // A "line" (a connector with both endpoints free - see isFreeLine) has no
+  // `transform` the renderer reads, so it can't be moved through the same
+  // transform-patching path as shapes/text/groups below; dragging its body
+  // instead translates both endpoints (and any waypoints/bezier handles)
+  // by the same delta, tracked separately from the shape-move state above.
+  let lineDragId: NodeId | null = null;
+  let lineDragOrig: ConnectorNode | null = null;
 
   let marqueeActive = false;
   let marqueeStart = { x: 0, y: 0 };
@@ -98,6 +106,12 @@ export function attachSelectMoveTool(
       startWorld = world;
       if (dragging) projectStore.beginGesture();
       container.setPointerCapture(e.pointerId);
+    } else if (node.type === "connector" && selected.length === 1 && selected.includes(id) && isFreeLine(node as ConnectorNode)) {
+      lineDragId = id;
+      lineDragOrig = node as ConnectorNode;
+      startWorld = world;
+      projectStore.beginGesture();
+      container.setPointerCapture(e.pointerId);
     }
     e.stopPropagation();
   });
@@ -111,6 +125,35 @@ export function attachSelectMoveTool(
         width: Math.abs(world.x - marqueeStart.x),
         height: Math.abs(world.y - marqueeStart.y),
       });
+      return;
+    }
+
+    if (lineDragId && lineDragOrig) {
+      const world = clientToWorld(e.clientX, e.clientY, container, viewStore.get());
+      let dx = world.x - startWorld.x;
+      let dy = world.y - startWorld.y;
+      const { canvas } = projectStore.get();
+      if (canvas.snapEnabled) {
+        const src = lineDragOrig.source as Point; // guaranteed a free point: isFreeLine gated the drag start
+        dx = snapValue(src.x + dx, canvas.gridSize) - src.x;
+        dy = snapValue(src.y + dy, canvas.gridSize) - src.y;
+      }
+
+      const orig = lineDragOrig;
+      const source = orig.source as Point;
+      const target = orig.target as Point;
+      const patch: Record<string, unknown> = {
+        source: { x: source.x + dx, y: source.y + dy },
+        target: { x: target.x + dx, y: target.y + dy },
+      };
+      if (orig.waypoints) patch.waypoints = orig.waypoints.map((wp) => ({ x: wp.x + dx, y: wp.y + dy }));
+      if (orig.bezierControls) {
+        patch.bezierControls = {
+          c1: { x: orig.bezierControls.c1.x + dx, y: orig.bezierControls.c1.y + dy },
+          c2: { x: orig.bezierControls.c2.x + dx, y: orig.bezierControls.c2.y + dy },
+        };
+      }
+      projectStore.update((p) => updateNode(p, lineDragId!, patch));
       return;
     }
 
@@ -202,6 +245,13 @@ export function attachSelectMoveTool(
 
   function endDrag(e: PointerEvent) {
     finishMarquee(e);
+    if (lineDragId) {
+      lineDragId = null;
+      lineDragOrig = null;
+      projectStore.endGesture();
+      container.releasePointerCapture(e.pointerId);
+      return;
+    }
     if (!dragging) return;
     dragging = false;
     dragIds = [];

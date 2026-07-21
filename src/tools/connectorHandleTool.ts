@@ -7,7 +7,7 @@ import { resolveConnectorEndpoints } from "@/core/geometry";
 import { getBezierHandlePoints, getOrthogonalBendPoints } from "@/core/routing";
 import { updateNode } from "@/core/mutations";
 
-type DragState = { kind: "waypoint"; index: number; waypoints: Point[] } | { kind: "bezier"; handle: "c1" | "c2" };
+type DragState = { kind: "waypoint"; index: number; waypoints: Point[] } | { kind: "bezier"; handle: "c1" | "c2" } | { kind: "endpoint"; which: "source" | "target" };
 
 function pointToSegmentDistance(p: Point, a: Point, b: Point): number {
   const dx = b.x - a.x;
@@ -35,27 +35,33 @@ export function attachConnectorHandleTool(
 
   handlesLayer.addEventListener("pointerdown", (e) => {
     const target = e.target as SVGElement;
+    const endpointAttr = target.getAttribute?.("data-endpoint") as "source" | "target" | null;
     const waypointAttr = target.getAttribute?.("data-waypoint-index");
     const bezierHandle = target.getAttribute?.("data-bezier-handle") as "c1" | "c2" | null;
-    if (waypointAttr === null && !bezierHandle) return;
+    if (!endpointAttr && waypointAttr === null && !bezierHandle) return;
 
     const id = viewStore.get().selectedIds[0];
     const node = id ? projectStore.get().nodes[id] : undefined;
     if (!node || node.type !== "connector") return;
     const connector = node as ConnectorNode;
-    const endpoints = resolveConnectorEndpoints(projectStore.get(), connector);
-    if (!endpoints) return;
 
-    if (bezierHandle) {
-      drag = { kind: "bezier", handle: bezierHandle };
+    if (endpointAttr) {
+      drag = { kind: "endpoint", which: endpointAttr };
     } else {
-      const bends = getOrthogonalBendPoints(endpoints.sourcePos, endpoints.sourceSide, endpoints.targetPos, endpoints.targetSide, {
-        routing: "orthogonal",
-        cornerRadius: connector.cornerRadius,
-        stubLength: connector.stubLength,
-        waypoints: connector.waypoints,
-      });
-      drag = { kind: "waypoint", index: Number(waypointAttr), waypoints: bends };
+      const endpoints = resolveConnectorEndpoints(projectStore.get(), connector);
+      if (!endpoints) return;
+
+      if (bezierHandle) {
+        drag = { kind: "bezier", handle: bezierHandle };
+      } else {
+        const bends = getOrthogonalBendPoints(endpoints.sourcePos, endpoints.sourceSide, endpoints.targetPos, endpoints.targetSide, {
+          routing: "orthogonal",
+          cornerRadius: connector.cornerRadius,
+          stubLength: connector.stubLength,
+          waypoints: connector.waypoints,
+        });
+        drag = { kind: "waypoint", index: Number(waypointAttr), waypoints: bends };
+      }
     }
 
     activeId = id;
@@ -72,6 +78,9 @@ export function attachConnectorHandleTool(
     projectStore.update((p) => {
       const node = p.nodes[activeId!];
       if (!node || node.type !== "connector") return p;
+      if (current.kind === "endpoint") {
+        return updateNode(p, activeId!, { [current.which]: { x: world.x, y: world.y } });
+      }
       if (current.kind === "bezier") {
         const connector = node as ConnectorNode;
         const endpoints = resolveConnectorEndpoints(p, connector);

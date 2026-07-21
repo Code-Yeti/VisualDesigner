@@ -165,6 +165,54 @@ drag operates on.
   shape/text resize, and reusing it for a conceptually different "which
   bend/control point" data attribute would have collided.
 
+### Standalone lines (`ConnectorEndpoint` / `isFreeLine`, `src/core/model.ts`)
+
+The Line tool (`tools/lineTool.ts`) places a connector with free-floating
+endpoints instead of building a parallel node type. `ConnectorNode.source`/
+`.target` are typed as `ConnectorEndpoint = { nodeId; portId } | Point`,
+distinguished structurally (`isPortEndpoint()` checks `"nodeId" in
+endpoint`) rather than with an explicit `kind` tag - so every connector saved
+before this feature existed, which only ever has `{nodeId, portId}`, still
+loads and renders identically with no file-format migration. `isFreeLine()`
+(both endpoints are free points) is the single predicate that gates every
+line-specific code path; a connector with one free and one port-attached
+endpoint is representable but never produced by either tool.
+
+This choice - generalizing the endpoint instead of adding a `"line"`
+`NodeType` - is what makes the Properties panel, dash/gradient/marker
+rendering, drop-shadow filter regions, save/load, and every export path work
+for lines with zero new code: they all already operate on "a connector's two
+resolved endpoint positions + sides," not on shape/port references directly.
+`geometry.ts`'s `resolveConnectorEndpoints()` is the one seam - a free point
+resolves to itself with `side: "custom"` (zero stub direction, same as a
+shape port already using that side), and `renderConnector.ts`/
+`defsManager.ts`'s gradient + filter-region logic were refactored to call it
+instead of reaching into `source.nodeId`/`.portId` directly.
+
+Because a line has no shape, its position isn't carried in `transform`
+(unused for any connector) - it's the endpoints themselves. Two places
+special-case this:
+- `selectMoveTool.ts`: dragging a line's rendered body (not a handle)
+  translates `source`/`target`/`waypoints`/`bezierControls` together, tracked
+  in separate `lineDragId`/`lineDragOrig` state from the shape/text/group
+  move path, which patches `transform` instead.
+- `keyboardShortcuts.ts`'s arrow-nudge has the same branch for the same
+  reason.
+
+Endpoint handles themselves are always drawn/draggable (`data-endpoint`
+attr, `attachConnectorHandlesOverlay` / `connectorHandleTool.ts`) whenever an
+endpoint is free, *regardless of routing* - unlike bend/bezier handles,
+which only exist for non-straight routing, a straight line's two ends are
+the only thing there is to reshape.
+
+`mutations.ts`'s `remapConnectorForCopy()` (shared by `duplicateNodes` and
+`clipboard.ts`'s `pasteClipboard`) is the one place duplicate/paste needed
+new logic: a port endpoint's `nodeId` is remapped through the batch's id map
+as before, but a free endpoint - along with any waypoints/bezier handles,
+which are absolute world points - gets the same offset every other
+duplicated node gets, so a copied line doesn't land exactly on top of the
+original with its bends left behind at the pre-offset location.
+
 ### Drop shadows (`ShapeStyle.filterId` / `TextNode.filterId` / `ConnectorStyle.filterId`)
 
 A node opts into a drop shadow by pointing `filterId` at a `FilterDef` in
@@ -366,8 +414,9 @@ verified end-to-end in a real browser, not just typechecked:
 - Image/icon upload: PNG/JPG/WebP/GIF/SVG via the toolbar's "Upload Image"
   button, placed centered in the current view (scaled down, never up, to fit
   within a max dimension, aspect ratio preserved) and fully resizable
-- Drop shadows: shapes, text, and connectors can each toggle a drop shadow
-  (offset X/Y, blur, color, opacity) with a `network.htm`-matching default
+- Drop shadows: shapes, text, connectors, and lines can each toggle a drop
+  shadow (offset X/Y, blur, color, opacity) with a `network.htm`-matching
+  default
 - Text: standalone tool + title/subtitle bound to shapes, full font controls,
   resize handles (drag scales `font.size`, anchored on the opposite
   edge/corner from the dragged handle - a text node has no independent
@@ -378,6 +427,10 @@ verified end-to-end in a real browser, not just typechecked:
   (default dash length 8 everywhere), marching-ants animation,
   solid/auto/custom-gradient stroke, arrow/openArrow/circle/diamond
   terminators
+- Lines: same node type as a connector but with free-floating endpoints
+  (see `isFreeLine`) instead of shape/port attachment - same routing/dash/
+  gradient/terminator/drop-shadow options, draggable endpoint handles, and a
+  whole-body drag to move both endpoints together
 - Grouping, multi-select (shift-click + marquee drag), align/distribute
   (text nodes participate with a real - if approximate - bbox, not a
   zero-size point), copy/paste, duplicate (a connector duplicated/pasted

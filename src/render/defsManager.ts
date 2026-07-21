@@ -1,6 +1,6 @@
-import type { ConnectorNode, MarkerType, Project, ShapeNode, TextNode } from "@/core/model";
-import { SHAPE_NODE_TYPES } from "@/core/model";
-import { resolvePortWorldPos } from "@/core/geometry";
+import type { ConnectorEndpoint, ConnectorNode, MarkerType, Project, ShapeNode, TextNode } from "@/core/model";
+import { isPortEndpoint, SHAPE_NODE_TYPES } from "@/core/model";
+import { resolveConnectorEndpoints } from "@/core/geometry";
 import { svgEl, setAttrs } from "./svgUtil";
 
 export function markerDefId(type: string, color: string, size: number, end: "start" | "end"): string {
@@ -84,20 +84,24 @@ function syncFilter(
 
 /** Absolute filter-region bounds for a connector's drop shadow, padded generously past its two endpoints to cover orthogonal stubs/corners and the shadow's own offset/blur - never zero-width or zero-height even for a perfectly straight vertical/horizontal connector. */
 function connectorFilterRegion(project: Project, connector: ConnectorNode): { x: number; y: number; width: number; height: number } | undefined {
-  const sourceNode = project.nodes[connector.source.nodeId] as ShapeNode | undefined;
-  const targetNode = project.nodes[connector.target.nodeId] as ShapeNode | undefined;
-  const sourcePort = sourceNode?.ports.find((p) => p.id === connector.source.portId);
-  const targetPort = targetNode?.ports.find((p) => p.id === connector.target.portId);
-  if (!sourceNode || !targetNode || !sourcePort || !targetPort) return undefined;
+  const endpoints = resolveConnectorEndpoints(project, connector);
+  if (!endpoints) return undefined;
 
-  const a = resolvePortWorldPos(sourceNode, sourcePort);
-  const b = resolvePortWorldPos(targetNode, targetPort);
+  const a = endpoints.sourcePos;
+  const b = endpoints.targetPos;
   const pad = 80 + connector.markers.size * 2 + connector.cornerRadius + connector.stubLength;
   const minX = Math.min(a.x, b.x) - pad;
   const minY = Math.min(a.y, b.y) - pad;
   const maxX = Math.max(a.x, b.x) + pad;
   const maxY = Math.max(a.y, b.y) + pad;
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** The color an "auto" gradient stop samples for one connector endpoint: the attached shape's solid fill, or the same neutral gray used elsewhere as a non-solid-fill fallback for a free ("line") endpoint, which has no shape to sample. */
+function endpointFillColor(project: Project, endpoint: ConnectorEndpoint): string {
+  if (!isPortEndpoint(endpoint)) return "#94a3b8";
+  const node = project.nodes[endpoint.nodeId] as ShapeNode | undefined;
+  return node && node.style.fill.kind === "solid" ? node.style.fill.color : "#94a3b8";
 }
 
 function syncConnectorGradient(stageDefs: SVGDefsElement, project: Project, connector: ConnectorNode, neededIds: Set<string>): void {
@@ -121,21 +125,15 @@ function syncConnectorGradient(stageDefs: SVGDefsElement, project: Project, conn
   // element's bounding box has zero width OR height - which a perfectly
   // horizontal or vertical connector always has - silently turning the
   // stroke into no paint at all. Real coordinates sidestep that entirely.
-  const sourceNode = project.nodes[connector.source.nodeId] as ShapeNode | undefined;
-  const targetNode = project.nodes[connector.target.nodeId] as ShapeNode | undefined;
-  const sourcePort = sourceNode?.ports.find((p) => p.id === connector.source.portId);
-  const targetPort = targetNode?.ports.find((p) => p.id === connector.target.portId);
-  if (!sourceNode || !targetNode || !sourcePort || !targetPort) return;
+  const endpoints = resolveConnectorEndpoints(project, connector);
+  if (!endpoints) return;
 
-  const sourcePos = resolvePortWorldPos(sourceNode, sourcePort);
-  const targetPos = resolvePortWorldPos(targetNode, targetPort);
-  setAttrs(el, { gradientUnits: "userSpaceOnUse", x1: sourcePos.x, y1: sourcePos.y, x2: targetPos.x, y2: targetPos.y });
+  setAttrs(el, { gradientUnits: "userSpaceOnUse", x1: endpoints.sourcePos.x, y1: endpoints.sourcePos.y, x2: endpoints.targetPos.x, y2: endpoints.targetPos.y });
 
   if (def.mode === "auto") {
-    const sourceColor = sourceNode.style.fill.kind === "solid" ? sourceNode.style.fill.color : "#94a3b8";
-    const targetColor = targetNode.style.fill.kind === "solid" ? targetNode.style.fill.color : "#94a3b8";
-    el.appendChild(svgEl("stop", { offset: "0", "stop-color": sourceColor }));
-    el.appendChild(svgEl("stop", { offset: "1", "stop-color": targetColor }));
+    // A free ("line") endpoint has no shape to sample a fill color from, so it falls back to the same neutral gray used for a non-solid fill.
+    el.appendChild(svgEl("stop", { offset: "0", "stop-color": endpointFillColor(project, connector.source) }));
+    el.appendChild(svgEl("stop", { offset: "1", "stop-color": endpointFillColor(project, connector.target) }));
   } else {
     const stops = def.stops?.length
       ? def.stops

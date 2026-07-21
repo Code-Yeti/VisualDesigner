@@ -1,5 +1,5 @@
-import type { CanvasConfig, ConnectorNode, FilterDef, GradientDef, GroupNode, NodeId, Project, SceneNode } from "./model";
-import { defaultTransform } from "./model";
+import type { CanvasConfig, ConnectorEndpoint, ConnectorNode, FilterDef, GradientDef, GroupNode, NodeId, Point, Project, SceneNode } from "./model";
+import { defaultTransform, isFreeLine, isPortEndpoint } from "./model";
 import { nextId } from "./ids";
 
 export function addNode(project: Project, node: SceneNode): Project {
@@ -35,7 +35,8 @@ export function removeNodeCascade(project: Project, id: NodeId): Project {
   let next = removeNode(project, id);
   const dangling = next.order.filter((oid) => {
     const n = next.nodes[oid];
-    return n?.type === "connector" && (n.source.nodeId === id || n.target.nodeId === id);
+    if (n?.type !== "connector") return false;
+    return (isPortEndpoint(n.source) && n.source.nodeId === id) || (isPortEndpoint(n.target) && n.target.nodeId === id);
   });
   for (const cid of dangling) next = removeNode(next, cid);
   return next;
@@ -154,6 +155,42 @@ export function deleteNodes(project: Project, ids: NodeId[]): Project {
   return next;
 }
 
+function remapConnectorEndpoint(endpoint: ConnectorEndpoint, idMap: Map<NodeId, NodeId>, offset: number): ConnectorEndpoint {
+  if (isPortEndpoint(endpoint)) return { ...endpoint, nodeId: idMap.get(endpoint.nodeId) ?? endpoint.nodeId };
+  return { x: endpoint.x + offset, y: endpoint.y + offset };
+}
+
+function offsetPoint(p: Point, offset: number): Point {
+  return { x: p.x + offset, y: p.y + offset };
+}
+
+/**
+ * Clones a connector for duplicate/paste: a port endpoint is rewired
+ * through `idMap` (falling back to the original id if that endpoint wasn't
+ * part of the batch, unchanged); a free endpoint (a "line" - see
+ * `isFreeLine`) gets the same `offset` shift every other duplicated node
+ * gets, and so do its waypoints/bezier handles (also absolute world points)
+ * so the bends move with the endpoints instead of kinking the path. A
+ * regular connector's waypoints/bezier handles are left as-is, matching
+ * existing behavior - both its endpoints are shape-relative already, not
+ * offset, so there's nothing to keep them in sync with.
+ */
+export function remapConnectorForCopy(connector: ConnectorNode, newId: NodeId, newParentId: NodeId | null, idMap: Map<NodeId, NodeId>, offset: number): ConnectorNode {
+  const isLine = isFreeLine(connector);
+  return {
+    ...connector,
+    id: newId,
+    parentId: newParentId,
+    source: remapConnectorEndpoint(connector.source, idMap, isLine ? offset : 0),
+    target: remapConnectorEndpoint(connector.target, idMap, isLine ? offset : 0),
+    waypoints: isLine ? connector.waypoints?.map((p) => offsetPoint(p, offset)) : connector.waypoints,
+    bezierControls:
+      isLine && connector.bezierControls
+        ? { c1: offsetPoint(connector.bezierControls.c1, offset), c2: offsetPoint(connector.bezierControls.c2, offset) }
+        : connector.bezierControls,
+  };
+}
+
 /**
  * Duplicates each selected id (shapes/text get a small offset; groups are
  * reconstructed with fresh child ids) and returns the new top-level ids to
@@ -181,14 +218,7 @@ export function duplicateNodes(project: Project, ids: NodeId[]): { project: Proj
 
   function cloneNode(node: SceneNode, newId: NodeId, newParentId: NodeId | null): SceneNode {
     if (node.type === "connector") {
-      const connector = node as ConnectorNode;
-      return {
-        ...connector,
-        id: newId,
-        parentId: newParentId,
-        source: { ...connector.source, nodeId: idMap.get(connector.source.nodeId) ?? connector.source.nodeId },
-        target: { ...connector.target, nodeId: idMap.get(connector.target.nodeId) ?? connector.target.nodeId },
-      };
+      return remapConnectorForCopy(node as ConnectorNode, newId, newParentId, idMap, offset);
     }
     if (node.type === "group") {
       const group = node as GroupNode;

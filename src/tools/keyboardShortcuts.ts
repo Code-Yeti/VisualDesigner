@@ -1,5 +1,7 @@
 import type { HistoryStore } from "@/core/historyStore";
 import type { Store } from "@/core/store";
+import type { ConnectorNode, Point } from "@/core/model";
+import { isFreeLine } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { deleteNodes, duplicateNodes, getGroupDescendantIds, groupNodes, updateNode } from "@/core/mutations";
 import { copyNodes, pasteClipboard, type Clipboard } from "@/core/clipboard";
@@ -93,6 +95,27 @@ export function attachKeyboardShortcuts(projectStore: HistoryStore, viewStore: S
         for (const id of moveIds) {
           const node = next.nodes[id];
           if (!node) continue;
+          // A "line" (free-endpoint connector, see isFreeLine) has no
+          // `transform` the renderer reads - nudge its endpoints/waypoints/
+          // bezier handles directly instead, same as selectMoveTool's
+          // whole-body drag.
+          if (node.type === "connector" && isFreeLine(node as ConnectorNode)) {
+            const connector = node as ConnectorNode;
+            const source = connector.source as Point;
+            const target = connector.target as Point;
+            next = updateNode(next, id, {
+              source: { x: source.x + dx, y: source.y + dy },
+              target: { x: target.x + dx, y: target.y + dy },
+              waypoints: connector.waypoints?.map((wp) => ({ x: wp.x + dx, y: wp.y + dy })),
+              bezierControls: connector.bezierControls
+                ? {
+                    c1: { x: connector.bezierControls.c1.x + dx, y: connector.bezierControls.c1.y + dy },
+                    c2: { x: connector.bezierControls.c2.x + dx, y: connector.bezierControls.c2.y + dy },
+                  }
+                : undefined,
+            });
+            continue;
+          }
           next = updateNode(next, id, { transform: { ...node.transform, x: node.transform.x + dx, y: node.transform.y + dy } });
         }
         return next;

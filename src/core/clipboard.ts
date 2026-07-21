@@ -1,6 +1,6 @@
 import type { ConnectorNode, GroupNode, NodeId, Project, SceneNode } from "./model";
 import { nextId } from "./ids";
-import { getGroupDescendantIds } from "./mutations";
+import { getGroupDescendantIds, remapConnectorForCopy } from "./mutations";
 
 export interface ClipboardEntry {
   root: SceneNode;
@@ -50,14 +50,7 @@ export function pasteClipboard(project: Project, clipboard: Clipboard, offset: n
 
   function cloneNode(node: SceneNode, newId: NodeId, newParentId: NodeId | null): SceneNode {
     if (node.type === "connector") {
-      const connector = node as ConnectorNode;
-      return {
-        ...connector,
-        id: newId,
-        parentId: newParentId,
-        source: { ...connector.source, nodeId: idMap.get(connector.source.nodeId) ?? connector.source.nodeId },
-        target: { ...connector.target, nodeId: idMap.get(connector.target.nodeId) ?? connector.target.nodeId },
-      };
+      return remapConnectorForCopy(node as ConnectorNode, newId, newParentId, idMap, offset);
     }
     if (node.type === "group") {
       const group = node as GroupNode;

@@ -1,4 +1,5 @@
-import type { ConnectorNode, Port, Project, ShapeGeometry, ShapeNode, TextNode } from "./model";
+import type { ConnectorEndpoint, ConnectorNode, Point, Port, Project, ShapeGeometry, ShapeNode, TextNode } from "./model";
+import { isPortEndpoint } from "./model";
 import { getGroupDescendantIds } from "./mutations";
 
 export type HandleId = "nw" | "n" | "ne" | "e" | "se" | "s" | "sw" | "w";
@@ -131,22 +132,24 @@ export function resolvePortWorldPos(node: ShapeNode, port: Port): { x: number; y
   return { x: node.transform.x + port.x * width, y: node.transform.y + port.y * height };
 }
 
-/** Resolves both of a connector's endpoints (position + port side) from the live shapes/ports they reference, or null if either side is dangling. */
+/** Resolves one connector endpoint to a live world position + port side - a free point (see `ConnectorEndpoint`) resolves to itself with side "custom" (no stub direction), matching how `routing.ts` already treats a shape port with `side: "custom"`. */
+function resolveEndpoint(project: Project, endpoint: ConnectorEndpoint): { pos: Point; side: Port["side"] } | null {
+  if (!isPortEndpoint(endpoint)) return { pos: endpoint, side: "custom" };
+  const node = project.nodes[endpoint.nodeId] as ShapeNode | undefined;
+  const port = node?.ports.find((p) => p.id === endpoint.portId);
+  if (!node || !port) return null;
+  return { pos: resolvePortWorldPos(node, port), side: port.side };
+}
+
+/** Resolves both of a connector's endpoints (position + port side) from the live shapes/ports they reference (or, for a free/"line" endpoint, the stored point itself), or null if a port-based side is dangling. */
 export function resolveConnectorEndpoints(
   project: Project,
   connector: ConnectorNode
-): { sourcePos: { x: number; y: number }; sourceSide: Port["side"]; targetPos: { x: number; y: number }; targetSide: Port["side"] } | null {
-  const sourceNode = project.nodes[connector.source.nodeId] as ShapeNode | undefined;
-  const targetNode = project.nodes[connector.target.nodeId] as ShapeNode | undefined;
-  const sourcePort = sourceNode?.ports.find((p) => p.id === connector.source.portId);
-  const targetPort = targetNode?.ports.find((p) => p.id === connector.target.portId);
-  if (!sourceNode || !targetNode || !sourcePort || !targetPort) return null;
-  return {
-    sourcePos: resolvePortWorldPos(sourceNode, sourcePort),
-    sourceSide: sourcePort.side,
-    targetPos: resolvePortWorldPos(targetNode, targetPort),
-    targetSide: targetPort.side,
-  };
+): { sourcePos: Point; sourceSide: Port["side"]; targetPos: Point; targetSide: Port["side"] } | null {
+  const source = resolveEndpoint(project, connector.source);
+  const target = resolveEndpoint(project, connector.target);
+  if (!source || !target) return null;
+  return { sourcePos: source.pos, sourceSide: source.side, targetPos: target.pos, targetSide: target.side };
 }
 
 export function handleWorldPos(bbox: BBox, handle: HandleId): { x: number; y: number } {

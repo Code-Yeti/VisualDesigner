@@ -1,6 +1,6 @@
 import type { Store } from "@/core/store";
 import type { BoundTextItem, ConnectorNode, ConnectorStyle, DashKind, FilterDef, MarkerType, Project, RoutingKind, ShapeNode, ShapeStyle, TextNode } from "@/core/model";
-import { defaultDropShadowFilter, defaultFont, SHAPE_NODE_TYPES } from "@/core/model";
+import { defaultDropShadowFilter, defaultFont, isFreeLine, SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import { groupNodes, removeNode, removeNodeCascade, ungroupNode, updateNode, upsertFilterDef, upsertGradientDef } from "@/core/mutations";
 import { alignNodes, distributeNodes, type AlignMode } from "@/core/align";
@@ -195,6 +195,8 @@ export function mountPropertiesPanel(
   }
 
   function renderConnectorPanel(connector: ConnectorNode) {
+    const isLine = isFreeLine(connector);
+    const label = isLine ? "line" : "connector";
     const stroke = connector.style.stroke;
     const strokeMode = stroke.kind === "gradient" ? gradientModeOf(connector) : "solid";
     const solidColor = stroke.kind === "solid" ? stroke.color : "#475569";
@@ -254,7 +256,7 @@ export function mountPropertiesPanel(
 
       ${effectsFieldsHtml("conn-shadow", shadowFilterOf(connector.style.filterId))}
 
-      <button id="prop-delete" class="danger-btn">Delete connector</button>
+      <button id="prop-delete" class="danger-btn">Delete ${label}</button>
     `;
 
     panel.querySelector<HTMLSelectElement>("#conn-routing")!.addEventListener("change", (e) => {

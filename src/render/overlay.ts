@@ -1,7 +1,7 @@
 import type { Store } from "@/core/store";
 import type { BBox } from "@/core/geometry";
-import type { ConnectorNode, Project, ShapeNode, TextNode } from "@/core/model";
-import { SHAPE_NODE_TYPES } from "@/core/model";
+import type { ConnectorNode, Point, Project, ShapeNode, TextNode } from "@/core/model";
+import { isPortEndpoint, SHAPE_NODE_TYPES } from "@/core/model";
 import type { ViewState } from "@/core/viewState";
 import {
   getWorldBBox,
@@ -160,14 +160,24 @@ export function attachPortsOverlay(portsLayer: SVGGElement, projectStore: Store<
   render();
 }
 
+function endpointHandle(pt: Point, which: "source" | "target", size: number): SVGCircleElement {
+  const circle = svgEl("circle", { cx: pt.x, cy: pt.y, r: size, class: "connector-handle connector-endpoint-handle", "data-endpoint": which });
+  setAttrs(circle, { "pointer-events": "all" });
+  return circle;
+}
+
 /**
- * Draws draggable control-point handles for the single selected connector -
- * bend-point handles for orthogonal routing (`getOrthogonalBendPoints`,
- * always at least one: the auto elbow if no waypoints have been placed yet),
- * or the two bezier control-point handles with guide lines to their anchors
- * (`getBezierHandlePoints`). Straight connectors have nothing to control, so
- * nothing is drawn for them. `connectorHandleTool.ts` listens on this same
- * layer for drag/double-click interactions.
+ * Draws draggable control-point handles for the single selected connector:
+ * - A free ("line") endpoint (see `isFreeLine`) always gets a draggable
+ *   handle at its actual point, regardless of routing - a straight line's
+ *   two ends are the only thing there is to reshape.
+ * - Bend-point handles for orthogonal routing (`getOrthogonalBendPoints`,
+ *   always at least one: the auto elbow if no waypoints have been placed
+ *   yet), or the two bezier control-point handles with guide lines to their
+ *   anchors (`getBezierHandlePoints`) - only for non-straight routing, same
+ *   as before this feature existed.
+ * `connectorHandleTool.ts` listens on this same layer for drag/double-click
+ * interactions.
  */
 export function attachConnectorHandlesOverlay(handlesLayer: SVGGElement, projectStore: Store<Project>, viewStore: Store<ViewState>): void {
   function render() {
@@ -178,12 +188,16 @@ export function attachConnectorHandlesOverlay(handlesLayer: SVGGElement, project
     const node = project.nodes[view.selectedIds[0]];
     if (!node || node.type !== "connector") return;
     const connector = node as ConnectorNode;
-    if (connector.routing === "straight") return;
 
     const endpoints = resolveConnectorEndpoints(project, connector);
     if (!endpoints) return;
     const { sourcePos, sourceSide, targetPos, targetSide } = endpoints;
     const size = 6 / view.zoom;
+
+    if (!isPortEndpoint(connector.source)) handlesLayer.appendChild(endpointHandle(sourcePos, "source", size));
+    if (!isPortEndpoint(connector.target)) handlesLayer.appendChild(endpointHandle(targetPos, "target", size));
+
+    if (connector.routing === "straight") return;
 
     if (connector.routing === "bezier") {
       const { c1, c2 } = getBezierHandlePoints(sourcePos, sourceSide, targetPos, targetSide, {

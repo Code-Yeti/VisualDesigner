@@ -31,6 +31,7 @@ export function mountToolbar(
     <button data-tool="pill" title="Pill / Badge">Pill</button>
     <button data-tool="text" title="Text">Text</button>
     <button data-tool="connect" title="Connect (drag between shapes)">Connect</button>
+    <button data-tool="line" title="Line (drag anywhere on the canvas - endpoints stay free to move)">Line</button>
     <span class="toolbar-sep"></span>
     <select id="icon-select" title="Insert icon (then drag on the canvas)">
       <option value="">Icon…</option>

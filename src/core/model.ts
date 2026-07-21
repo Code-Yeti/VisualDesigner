@@ -219,10 +219,37 @@ export interface Point {
   y: number;
 }
 
+export interface PortEndpoint {
+  nodeId: NodeId;
+  portId: NodeId;
+}
+
+/**
+ * Either endpoint of a connector: attached to a live shape's port (the
+ * original/default case - resolved fresh every render via
+ * `resolvePortWorldPos`), or a free-floating absolute point with no shape
+ * attachment - what the "Line" tool produces, and what a dragged line
+ * endpoint writes back. Distinguished structurally (`"nodeId" in endpoint`,
+ * see `isPortEndpoint`) rather than with an explicit `kind` tag, so every
+ * connector saved before this feature existed - which only ever has
+ * `{nodeId, portId}` - still loads and behaves identically with no file
+ * migration needed.
+ */
+export type ConnectorEndpoint = PortEndpoint | Point;
+
+export function isPortEndpoint(endpoint: ConnectorEndpoint): endpoint is PortEndpoint {
+  return "nodeId" in endpoint;
+}
+
+/** A connector both of whose endpoints are free points - i.e. what the "Line" tool places, as opposed to a shape-to-shape connector. Unlike a regular connector, a line has an independent position (see `selectMoveTool.ts`'s whole-body drag and `keyboardShortcuts.ts`'s arrow-nudge). */
+export function isFreeLine(connector: ConnectorNode): boolean {
+  return !isPortEndpoint(connector.source) && !isPortEndpoint(connector.target);
+}
+
 export interface ConnectorNode extends BaseNode {
   type: "connector";
-  source: { nodeId: NodeId; portId: NodeId };
-  target: { nodeId: NodeId; portId: NodeId };
+  source: ConnectorEndpoint;
+  target: ConnectorEndpoint;
   routing: RoutingKind;
   cornerRadius: number;
   stubLength: number;
